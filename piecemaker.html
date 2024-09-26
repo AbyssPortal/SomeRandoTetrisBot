@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grid Selector</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            font-family: Arial, sans-serif;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(5, 40px);
+            grid-template-rows: repeat(5, 40px);
+            gap: 1px;
+        }
+        .cell {
+            width: 40px;
+            height: 40px;
+            background-color: white;
+            border: 1px solid #ccc;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+        }
+        .cell.selected {
+            background-color: #4CAF50;
+        }
+        .output {
+            margin-top: 20px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div>
+        <div class="grid" id="grid"></div>
+        <div class="output" id="output"></div>
+    </div>
+
+    <script>
+        const gridSize = 5;
+        const grid = document.getElementById('grid');
+        const output = document.getElementById('output');
+        const selectedCells = new Set();
+
+        function updateOutput() {
+            const result = [];
+            selectedCells.forEach(cell => {
+                const [x, y] = cell.split(',').map(Number);
+                result.push(`[${x}, ${-y}]`);
+            });
+            output.textContent = ` {${result.join(', ').replace(/\[/g, '{').replace(/\]/g, '}')}}`;
+        }
+
+        for (let y = -Math.floor(gridSize / 2); y <= Math.floor(gridSize / 2); y++) {
+            for (let x = -Math.floor(gridSize / 2); x <= Math.floor(gridSize / 2); x++) {
+                const cell = document.createElement('div');
+                cell.className = 'cell';
+                cell.dataset.coords = `${x},${y}`;
+                cell.addEventListener('click', () => {
+                    if (cell.classList.toggle('selected')) {
+                        selectedCells.add(cell.dataset.coords);
+                    } else {
+                        selectedCells.delete(cell.dataset.coords);
+                    }
+                    updateOutput();
+                });
+                grid.appendChild(cell);
+            }
+        }
+    </script>
+</body>
+</html>
