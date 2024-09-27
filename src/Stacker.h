@@ -129,6 +129,8 @@ class StackerGame {
     void start_left_arr();
     void start_right_arr();
 
+    void regenerate_next();
+
     Timer gravity;
 
     Timer soft_drop;
@@ -162,5 +164,7 @@ class StackerGame {
     BlockPiece get_ghost() const;
 
     bool is_hold_empty() const;
+
+    void reset();
 };
 }  // namespace Stacker

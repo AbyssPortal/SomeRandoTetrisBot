@@ -410,6 +410,15 @@ StackerGame::StackerGame() : board(),
     gravity.set(30, true);
 };
 
+void StackerGame::regenerate_next() {
+    if (next_queue.size() <= NEXT_QUEUE_MIN_SIZE) {
+        auto pieces = randomize_bag();
+        for (int i = 0; i < 7; i++) {
+            next_queue.push_back(pieces[i]);
+        }
+    }
+}
+
 void StackerGame::lock() {
     board |= active_piece.location();
     if (next_queue.size() <= NEXT_QUEUE_MIN_SIZE) {
@@ -499,12 +508,7 @@ void StackerGame::handle_event(Event event) {
 
 void StackerGame::try_hold() {
     if (empty_hold) {
-        if (next_queue.size() <= NEXT_QUEUE_MIN_SIZE) {
-            auto pieces = randomize_bag();
-            for (int i = 0; i < 7; i++) {
-                next_queue.push_back(pieces[i]);
-            }
-        }
+        regenerate_next();
         hold = active_piece.get_type();
         active_piece = BlockPiece(next_queue.front());
         next_queue.pop_front();
@@ -562,4 +566,28 @@ Piece_Type StackerGame::get_hold() const {
 
 bool StackerGame::is_hold_empty() const {
     return empty_hold;
+}
+
+BlockPiece StackerGame::get_ghost() const {
+    BlockPiece res = active_piece;
+    while (res.try_offset(board, 0, -1));
+    return res;
+}
+
+void StackerGame::reset() {
+    events.clear();
+    lock_timer.cancel();
+    gravity.cancel();
+    soft_drop.cancel();
+    left_DAS.cancel();
+    left_ARR.cancel();
+    right_DAS.cancel();
+    right_ARR.cancel();
+    board = Matrix();
+    next_queue.clear();
+    regenerate_next();
+    empty_hold = true;
+    active_piece = next_queue.front();
+    next_queue.pop_front();
+    gravity.set(30, true);
 }

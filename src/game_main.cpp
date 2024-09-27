@@ -18,7 +18,6 @@ const int SQUARE_SIZE = 40;
 
 const static int middle_offset_horizontal = SCREEN_WIDTH / 2 - (SQUARE_SIZE * BOARD_WIDTH) / 2;
 
-
 void draw_piece(SDL_Renderer* renderer, Stacker::Piece_Type type, int offsetx, int offsety);
 
 SDL_Color get_piece_color(Stacker::Piece_Type type) {
@@ -40,14 +39,13 @@ SDL_Color get_piece_color(Stacker::Piece_Type type) {
     }
 }
 
-
 void draw_next_queue(SDL_Renderer* renderer, const Stacker::StackerGame& game) {
     int counter = 0;
     for (Stacker::Piece_Type piece : game.get_next_queue()) {
         if (counter >= Stacker::StackerGame::NEXT_QUEUE_MIN_SIZE) {
             break;
         }
-        draw_piece(renderer, piece, middle_offset_horizontal + 11 * SQUARE_SIZE, 4*counter*SQUARE_SIZE);
+        draw_piece(renderer, piece, middle_offset_horizontal + 11 * SQUARE_SIZE, 4 * counter * SQUARE_SIZE);
         counter++;
     }
 }
@@ -113,6 +111,14 @@ int main(int argc, char* args[]) {
                         break;
                     case SDLK_z:
                         game.send_event(Stacker::Event::tap_ccw);
+                        break;
+                    case SDLK_a:
+                        game.send_event(Stacker::Event::tap_cw);
+                        game.send_event(Stacker::Event::tap_cw);
+                        break;
+                    case SDLK_r:
+                        game.reset();
+                        break;
                 }
             }
             if (e.type == SDL_KEYUP) {
@@ -135,6 +141,7 @@ int main(int argc, char* args[]) {
 
         // extract info
         Stacker::Matrix piece = game.get_active().location();
+        Stacker::Matrix ghost = game.get_ghost().location();
         SDL_Color col = get_piece_color(game.get_active().get_type());
         const Stacker::Matrix& board = game.get_board();
 
@@ -149,6 +156,8 @@ int main(int argc, char* args[]) {
                     SDL_SetRenderDrawColor(renderer, col.r, col.g, col.b, col.a);  // piece's color
                 } else if (board.at(j, BOARD_HEIGHT - i - 1)) {
                     SDL_SetRenderDrawColor(renderer, 0xFF, 0xFF, 0xFF, 0xFF);  // White
+                } else if (ghost.at(j, BOARD_HEIGHT - i - 1)) {
+                    SDL_SetRenderDrawColor(renderer, col.r / 2, col.g / 2, col.b / 2, col.a);  // piece's color
                 } else {
                     SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0xFF);  // Black
                 }
