@@ -46,10 +46,10 @@ const static int L_PIECE_MINOS[4 /* amount of rots */][4 /*size of l piece*/][2]
 };
 
 const static int O_PIECE_MINOS[4 /* amount of rots */][4 /*size of o piece*/][2] = {
-    {{0, 0}, {1, 0}, {0, 1}, {1, 1}},  // zero
-    {{0, 0}, {1, 0}, {0, 1}, {1, 1}},  // ninety
-    {{0, 0}, {1, 0}, {0, 1}, {1, 1}},  // one_eighty
-    {{0, 0}, {1, 0}, {0, 1}, {1, 1}}   // two_seventy
+    {{-1, 0}, {0, 0}, {-1, 1}, {0, 1}},  // zero
+    {{-1, 0}, {0, 0}, {-1, 1}, {0, 1}},  // ninety
+    {{-1, 0}, {0, 0}, {-1, 1}, {0, 1}},  // one_eighty
+    {{-1, 0}, {0, 0}, {-1, 1}, {0, 1}}   // two_seventy
 };
 
 int rotate_to_index(Rotate_State state) {
@@ -371,6 +371,7 @@ void StackerGame::handle_event(Event event) {
                 active_piece = BlockPiece(hold);
                 hold = temp;
             }
+            lock_timer.cancel();
             break;
         }
     }
