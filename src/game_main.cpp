@@ -94,6 +94,8 @@ int main(int argc, char* args[]) {
                     case SDLK_SPACE:
                         game.send_event(Stacker::Event::hard_drop);
                         break;
+                    case SDLK_z:
+                        game.send_event(Stacker::Event::tap_ccw);
                 }
             }
         }

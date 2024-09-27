@@ -160,7 +160,7 @@ const static int I_PIECE_SRS_CW[4][5][2] = {
     {{0, 0}, {-2, 0}, {1, 0}, {-2, -1}, {1, 2}},  // zero -> ninety
     {{0, 0}, {-1, 0}, {2, 0}, {1, 2}, {2, -1}},   // ninety -> one eighty
     {{0, 0}, {2, 0}, {-1, 0}, {2, 1}, {-1, -2}},  // one_eighty -> two seventy
-    {{0, 0}, {1, 0}, {-2, 0}, {1, -2}, {-2, 1}},  // one_eighty -> two seventy
+    {{0, 0}, {1, 0}, {-2, 0}, {1, -2}, {-2, 1}},  // two seventy -> zero
 };
 const static int OTHER_PIECE_SRS_CW[4][5][2] = {
     {{0, 0}, {-1, 0}, {-1, 1}, {0, -2}, {-1, -2}},  // zero -> ninety
@@ -168,6 +168,21 @@ const static int OTHER_PIECE_SRS_CW[4][5][2] = {
     {{0, 0}, {1, 0}, {1, 1}, {0, -2}, {1, -2}},     // one eighty -> two seventy
     {{0, 0}, {-1, 0}, {-1, -1}, {0, 2}, {-1, 2}},   // two seventy -> zero
 };
+
+const static int I_PIECE_SRS_COUNTER_CW[4][5][2] = {
+    {{0, 0}, {-1, 0}, {2, 0}, {-1, 2}, {2, -1}},  // zero -> two seventy
+    {{0, 0}, {2, 0}, {-1, 0}, {2, 1}, {-1, -2}},   // ninety -> zero
+    {{0, 0}, {1, 0}, {-2, 0}, {1, -2}, {-2, 1}},  // one eighty -> ninety
+    {{0, 0}, {-2, 0}, {1, 0}, {-2, -1}, {1, 2}},  // two seventy -> one eighty
+};
+
+const static int OTHER_PIECE_SRS_COUNTER_CW[4][5][2] = {
+    {{0, 0}, {1, 0}, {1, 1}, {0, -2}, {1, -2}},  // zero -> two seventy
+    {{0, 0}, {1, 0}, {1, -1}, {0, 2}, {1, 2}},      // ninety -> zero
+    {{0, 0}, {-1, 0}, {-1, 1}, {0, -2}, {-1, -2}},     // one eighty -> ninety
+    {{0, 0}, {-1, 0}, {-1, -1}, {0, 2}, {-1, 2}},   // two seventy -> one eighty
+};
+
 
 bool BlockPiece::try_90(const Matrix& mat) {
     if (type == Piece_Type::O) {
@@ -196,9 +211,35 @@ bool BlockPiece::try_90(const Matrix& mat) {
     return false;
 }
 
+
+
 bool BlockPiece::try_270(const Matrix& mat) {
-    PANIC("todo");
+    if (type == Piece_Type::O) {
+        return true;  // duh can always spin O
+    }
+    const int(*offsets)[2];
+    if (type == Piece_Type::I) {
+        offsets = I_PIECE_SRS_COUNTER_CW[rotate_to_index(this->state)];
+    } else {
+        offsets = OTHER_PIECE_SRS_COUNTER_CW[rotate_to_index(this->state)];
+    };
+
+    this->state = prev_state(this->state);
+
+    for (int i = 0; i < 5; i++) {
+        x += offsets[i][0];
+        y += offsets[i][1];
+        if (fits(mat)) {
+            return true;
+        }
+        x -= offsets[i][0];
+        y -= offsets[i][1];
+    }
+
+    this->state = next_state(this->state);
+    return false;
 }
+
 
 const Matrix& StackerGame::get_board() const {
     return board;
