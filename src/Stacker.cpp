@@ -156,7 +156,9 @@ bool BlockPiece::can_offset(const Matrix& mat, int x, int y) const {
     }
 };
 
-const static int I_PIECE_SRS_CW[4][5][2] = {
+const static int NUM_SRS_CW = 5;
+
+const static int I_PIECE_SRS_CW[4][NUM_SRS_CW][2] = {
     {{0, 0}, {-2, 0}, {1, 0}, {-2, -1}, {1, 2}},  // zero -> ninety
     {{0, 0}, {-1, 0}, {2, 0}, {1, 2}, {2, -1}},   // ninety -> one eighty
     {{0, 0}, {2, 0}, {-1, 0}, {2, 1}, {-1, -2}},  // one_eighty -> two seventy
@@ -169,7 +171,9 @@ const static int OTHER_PIECE_SRS_CW[4][5][2] = {
     {{0, 0}, {-1, 0}, {-1, -1}, {0, 2}, {-1, 2}},   // two seventy -> zero
 };
 
-const static int I_PIECE_SRS_COUNTER_CW[4][5][2] = {
+const static int NUM_SRS_CCW = 5;
+
+const static int I_PIECE_SRS_COUNTER_CW[4][NUM_SRS_CCW][2] = {
     {{0, 0}, {-1, 0}, {2, 0}, {-1, 2}, {2, -1}},  // zero -> two seventy
     {{0, 0}, {2, 0}, {-1, 0}, {2, 1}, {-1, -2}},  // ninety -> zero
     {{0, 0}, {1, 0}, {-2, 0}, {1, -2}, {-2, 1}},  // one eighty -> ninety
@@ -181,6 +185,15 @@ const static int OTHER_PIECE_SRS_COUNTER_CW[4][5][2] = {
     {{0, 0}, {1, 0}, {1, -1}, {0, 2}, {1, 2}},      // ninety -> zero
     {{0, 0}, {-1, 0}, {-1, 1}, {0, -2}, {-1, -2}},  // one eighty -> ninety
     {{0, 0}, {-1, 0}, {-1, -1}, {0, 2}, {-1, 2}},   // two seventy -> one eighty
+};
+
+const static int NUM_SRS_180 = 6;
+
+const static int SRS_180[4][NUM_SRS_180][2] = {
+    {{0, 0}, {0, 1}, {1, 1}, {-1, 1}, {1, 0}, {-1, 0}},     // zero -> one eighty
+    {{0, 0}, {1, 0}, {1, 2}, {1, 1}, {0, 2}, {0, 1}},       // ninety -> two seventy
+    {{0, 0}, {0, -1}, {-1, -1}, {1, -1}, {-1, 0}, {1, 0}},  // one eighty -> zero
+    {{0, 0}, {-1, 0}, {-1, 2}, {-1, 1}, {0, 2}, {0, 1}},    // two seventy -> ninety
 };
 
 bool BlockPiece::try_90(const Matrix& mat) {
@@ -196,7 +209,7 @@ bool BlockPiece::try_90(const Matrix& mat) {
 
     this->state = next_state(this->state);
 
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < NUM_SRS_CW; i++) {
         x += offsets[i][0];
         y += offsets[i][1];
         if (fits(mat)) {
@@ -223,7 +236,7 @@ bool BlockPiece::try_270(const Matrix& mat) {
 
     this->state = prev_state(this->state);
 
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < NUM_SRS_CCW; i++) {
         x += offsets[i][0];
         y += offsets[i][1];
         if (fits(mat)) {
@@ -234,6 +247,36 @@ bool BlockPiece::try_270(const Matrix& mat) {
     }
 
     this->state = next_state(this->state);
+    return false;
+}
+
+bool BlockPiece::try_180(const Matrix& mat) {
+    if (type == Piece_Type::O) {
+        return true;  // duh can always spin O
+    } else if (type == Piece_Type::I) {
+        state = next_state(next_state(state));
+        if (fits(mat)) {
+            return true;
+        } else {
+            state = next_state(next_state(state));
+            return false;
+        }
+    }
+    const int(*offsets)[2] = SRS_180[rotate_to_index(this->state)];
+
+    this->state = next_state(next_state(state));
+
+    for (int i = 0; i < NUM_SRS_180; i++) {
+        x += offsets[i][0];
+        y += offsets[i][1];
+        if (fits(mat)) {
+            return true;
+        }
+        x -= offsets[i][0];
+        y -= offsets[i][1];
+    }
+
+    this->state = next_state(next_state(state));
     return false;
 }
 
@@ -477,9 +520,16 @@ void StackerGame::handle_event(Event event) {
             }
             break;
         }
+        case Event::tap_180: {
+            if (active_piece.try_180(board)) {
+                lock_timer.cancel();
+            }
+            break;
+        }
         case Event::hard_drop: {
             while (active_piece.try_offset(board, 0, -1));
             lock();
+            lock_timer.cancel();
             break;
         }
         case Event::hold: {

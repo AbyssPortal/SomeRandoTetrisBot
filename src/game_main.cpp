@@ -113,8 +113,7 @@ int main(int argc, char* args[]) {
                         game.send_event(Stacker::Event::tap_ccw);
                         break;
                     case SDLK_a:
-                        game.send_event(Stacker::Event::tap_cw);
-                        game.send_event(Stacker::Event::tap_cw);
+                        game.send_event(Stacker::Event::tap_180);
                         break;
                     case SDLK_r:
                         game.reset();

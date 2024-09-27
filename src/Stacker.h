@@ -68,10 +68,13 @@ class BlockPiece {
     bool try_90(const Matrix& mat);
     // tries to rotate ccw, returns whether succeded.
     bool try_270(const Matrix& mat);
+    // tries to rotate 180, returns whether succeded
+    bool try_180(const Matrix& mat);
 
     Matrix location() const;
 
     Piece_Type get_type() const { return type; };
+
 
     ~BlockPiece() = default;
 };
@@ -85,6 +88,7 @@ enum class Event {
     release_left,
     tap_cw,
     tap_ccw,
+    tap_180,
     hard_drop,
     hold,
 };
