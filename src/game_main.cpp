@@ -3,6 +3,7 @@
 #include <cstdlib>
 #include <ctime>
 #include <iostream>
+#include <string>
 #include <vector>
 
 #include "Stacker.h"
@@ -19,6 +20,28 @@ const int SQUARE_SIZE = 40;
 const static int middle_offset_horizontal = SCREEN_WIDTH / 2 - (SQUARE_SIZE * BOARD_WIDTH) / 2;
 
 void draw_piece(SDL_Renderer* renderer, Stacker::Piece_Type type, int offsetx, int offsety);
+
+SDL_Texture* load_texture(SDL_Renderer* renderer, const char* path) {
+    // Load BMP image
+    SDL_Surface* image = SDL_LoadBMP(path);
+    if (image == nullptr) {
+        std::cerr << path << " ";
+        std::cerr << "Unable to load image! SDL_Error: " << SDL_GetError() << std::endl;
+        SDL_Quit();
+        exit(1);
+    }
+
+    // t spin texture
+    SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, image);
+    SDL_FreeSurface(image);
+    if (texture == nullptr) {
+        std::cerr << "Unable to create texture! SDL_Error: " << SDL_GetError() << std::endl;
+        SDL_Quit();
+        exit(1);
+    }
+
+    return texture;
+}
 
 SDL_Color get_piece_color(Stacker::Piece_Type type) {
     static const std::unordered_map<Stacker::Piece_Type, SDL_Color> piece_colors = {
@@ -75,6 +98,12 @@ int main(int argc, char* args[]) {
         SDL_Quit();
         return 1;
     }
+
+    auto* t_spin_texture = load_texture(renderer, "Assets/t-spin.bmp");
+    auto* single_texture = load_texture(renderer, "Assets/single.bmp");
+    auto* double_texture = load_texture(renderer, "Assets/double.bmp");
+    auto* triple_texture = load_texture(renderer, "Assets/triple.bmp");
+    auto* quadruple_texture = load_texture(renderer, "Assets/quadruple.bmp");
 
     bool quit = false;
     SDL_Event e;
@@ -170,6 +199,49 @@ int main(int argc, char* args[]) {
 
         if (!game.is_hold_empty()) {
             draw_piece(renderer, game.get_hold(), middle_offset_horizontal - SQUARE_SIZE * 5, 0);
+        }
+
+        {
+            auto clear = game.get_last_clear();
+            if (clear.is_spin == true) {
+                SDL_Rect t_spin_rect;
+                t_spin_rect.x = middle_offset_horizontal - 350;  // x position
+                t_spin_rect.y = 200;                             // y position
+                t_spin_rect.w = 350;                             // width
+                t_spin_rect.h = 200;                             // height
+
+                SDL_RenderCopy(renderer, t_spin_texture, nullptr, &t_spin_rect);
+            }
+            if (clear.clear_count >= 0) {
+                SDL_Rect count_rect;
+                count_rect.x = middle_offset_horizontal - 350;  // x position
+                count_rect.y = 400;                             // y position
+                count_rect.w = 350;                             // width
+                count_rect.h = 200;                             // height
+
+                SDL_Texture* count_texture;
+
+                switch (clear.clear_count) {
+                    case 1:
+                        count_texture = single_texture;
+                        break;
+                    case 2:
+                        count_texture = double_texture;
+                        break;
+                    case 3:
+                        count_texture = triple_texture;
+                        break;
+                    case 4:
+                        count_texture = quadruple_texture;
+                        break;
+                    default:
+                        count_texture = nullptr;
+                        break;
+                }
+                if (count_texture != nullptr) {
+                    SDL_RenderCopy(renderer, count_texture, nullptr, &count_rect);
+                }
+            }
         }
 
         draw_next_queue(renderer, game);

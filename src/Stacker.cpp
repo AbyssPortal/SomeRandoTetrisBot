@@ -1,6 +1,11 @@
 
 #include "Stacker.h"
 
+#define change_lmwr(value)                                                       \
+    do {                                                                         \
+        last_move_was_rotation = (value);                                        \
+    } while (0)
+
 using namespace Stacker;
 
 const static int I_PIECE_MINOS[4 /* amount of rots */][4 /*size of i piece*/][2] = {
@@ -338,8 +343,26 @@ void StackerGame::debug_print() const {
     }
 }
 
-void StackerGame::clear_lines() {
+bool BlockPiece::three_corners(const Matrix& mat) const {
+    int sum = 0;
+    if ((!mat.in_bounds(x + 1, y + 1) || mat.at(x + 1, y + 1))) {
+        sum++;
+    }
+    if ((!mat.in_bounds(x - 1, y + 1) || mat.at(x - 1, y + 1))) {
+        sum++;
+    }
+    if ((!mat.in_bounds(x + 1, y - 1) || mat.at(x + 1, y - 1))) {
+        sum++;
+    }
+    if ((!mat.in_bounds(x - 1, y - 1) || mat.at(x - 1, y - 1))) {
+        sum++;
+    }
+    return sum >= 3;
+}
+
+ClearInformation StackerGame::clear_lines() {
     int where_to[BOARD_HEIGHT];
+
     // where_to[0] stores where the 0th line *went*, -1 being removed from existence. the same goes for general i
 
     int full_so_far = 0;
@@ -360,6 +383,8 @@ void StackerGame::clear_lines() {
             where_to[row] = row - full_so_far;
         }
     }
+
+    ClearInformation result(active_piece.get_type() == Piece_Type::T && active_piece.three_corners(board) && last_move_was_rotation, full_so_far);
 
     bool done[BOARD_HEIGHT];
     for (int i = 0; i < (int)BOARD_HEIGHT; i++) {
@@ -383,6 +408,10 @@ void StackerGame::clear_lines() {
             }
         }
     }
+
+    std::cout << std::endl;
+
+    return result;
 }
 
 void StackerGame::tick() {
@@ -442,7 +471,8 @@ StackerGame::StackerGame() : board(),
                              left_DAS(std::bind(&StackerGame::start_left_arr, this)),
                              left_ARR(std::bind(&StackerGame::try_left, this)),
                              right_DAS(std::bind(&StackerGame::start_right_arr, this)),
-                             right_ARR(std::bind(&StackerGame::try_right, this))
+                             right_ARR(std::bind(&StackerGame::try_right, this)),
+                             last_clear(false, 0)
 
 {
     auto pieces = randomize_bag();
@@ -464,6 +494,7 @@ void StackerGame::regenerate_next() {
 
 void StackerGame::lock() {
     board |= active_piece.location();
+    last_clear = clear_lines();
     if (next_queue.size() <= NEXT_QUEUE_MIN_SIZE) {
         auto pieces = randomize_bag();
         for (int i = 0; i < 7; i++) {
@@ -472,18 +503,20 @@ void StackerGame::lock() {
     }
     active_piece = BlockPiece(next_queue.front());
     next_queue.pop_front();
-    clear_lines();
+    change_lmwr(false);
 };
 
 void StackerGame::try_left() {
     if (active_piece.try_offset(board, -1, 0)) {
         lock_timer.cancel();
+        change_lmwr(false);
     }
 }
 
 void StackerGame::try_right() {
     if (active_piece.try_offset(board, 1, 0)) {
         lock_timer.cancel();
+        change_lmwr(false);
     }
 }
 
@@ -511,23 +544,29 @@ void StackerGame::handle_event(Event event) {
         case Event::tap_cw: {
             if (active_piece.try_90(board)) {
                 lock_timer.cancel();
+                change_lmwr(true);
             }
             break;
         }
         case Event::tap_ccw: {
             if (active_piece.try_270(board)) {
                 lock_timer.cancel();
+                change_lmwr(true);
             }
             break;
         }
         case Event::tap_180: {
             if (active_piece.try_180(board)) {
                 lock_timer.cancel();
+                change_lmwr(true);
             }
             break;
         }
         case Event::hard_drop: {
-            while (active_piece.try_offset(board, 0, -1));
+            while (active_piece.try_offset(board, 0, -1)) {
+                change_lmwr(false);
+            }
+
             lock();
             lock_timer.cancel();
             break;
@@ -574,6 +613,7 @@ void StackerGame::try_hold() {
 void StackerGame::drop_one() {
     if (active_piece.try_offset(board, 0, -1)) {
         lock_timer.cancel();
+        change_lmwr(false);
     }
 }
 
@@ -640,4 +680,8 @@ void StackerGame::reset() {
     active_piece = next_queue.front();
     next_queue.pop_front();
     gravity.set(30, true);
+}
+
+ClearInformation StackerGame::get_last_clear() const {
+    return last_clear;
 }

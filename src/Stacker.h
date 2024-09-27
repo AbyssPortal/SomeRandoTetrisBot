@@ -59,10 +59,10 @@ class BlockPiece {
     BlockPiece(Piece_Type type);
     bool fits(const Matrix& mat) const;
     // tries to move the given offset (+x = right, +y = down), returns whether succeded.
-    virtual bool try_offset(const Matrix& mat, int x, int y);
+    bool try_offset(const Matrix& mat, int x, int y);
 
     // returns whether can in theory do this offset
-    virtual bool can_offset(const Matrix& mat, int x, int y) const;
+    bool can_offset(const Matrix& mat, int x, int y) const;
 
     // tries to rotate clockwise, returns whether succeded.
     bool try_90(const Matrix& mat);
@@ -71,10 +71,11 @@ class BlockPiece {
     // tries to rotate 180, returns whether succeded
     bool try_180(const Matrix& mat);
 
+    bool three_corners(const Matrix& mat) const;
+
     Matrix location() const;
 
     Piece_Type get_type() const { return type; };
-
 
     ~BlockPiece() = default;
 };
@@ -93,10 +94,18 @@ enum class Event {
     hold,
 };
 
+struct ClearInformation {
+    bool is_spin;
+    int clear_count;
+    ClearInformation(bool is_spin, int clear_count) : is_spin(is_spin), clear_count(clear_count) {};
+};
+
 class StackerGame {
     const static constexpr double DAS_INTERVAL = 5;
     const static constexpr double ARR_INTERVAL = 0.01;
     const static constexpr double SOFT_DROP_INTERVAL = 0.01;
+
+    bool last_move_was_rotation;
 
     Matrix board;
 
@@ -120,7 +129,9 @@ class StackerGame {
 
     void drop_one();
 
-    void clear_lines();
+    ClearInformation clear_lines();
+
+    ClearInformation last_clear;
 
     void hard_drop();
 
@@ -169,6 +180,9 @@ class StackerGame {
 
     bool is_hold_empty() const;
 
+    ClearInformation get_last_clear() const;
+
     void reset();
 };
+
 }  // namespace Stacker
