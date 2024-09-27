@@ -74,16 +74,16 @@ int main(int argc, char* args[]) {
             if (e.type == SDL_QUIT) {
                 quit = true;
             }
-            if (e.type == SDL_KEYDOWN) {
+            if (e.type == SDL_KEYDOWN && e.key.repeat == false) {
                 switch (e.key.keysym.sym) {
                     case SDLK_DOWN:
-                        game.send_event(Stacker::Event::tap_down);
+                        game.send_event(Stacker::Event::press_down);
                         break;
                     case SDLK_LEFT:
-                        game.send_event(Stacker::Event::tap_left);
+                        game.send_event(Stacker::Event::press_left);
                         break;
                     case SDLK_RIGHT:
-                        game.send_event(Stacker::Event::tap_right);
+                        game.send_event(Stacker::Event::press_right);
                         break;
                     case SDLK_UP:
                         game.send_event(Stacker::Event::tap_cw);
@@ -96,6 +96,19 @@ int main(int argc, char* args[]) {
                         break;
                     case SDLK_z:
                         game.send_event(Stacker::Event::tap_ccw);
+                }
+            }
+            if (e.type == SDL_KEYUP) {
+                switch (e.key.keysym.sym) {
+                    case SDLK_DOWN:
+                        game.send_event(Stacker::Event::release_down);
+                        break;
+                    case SDLK_LEFT:
+                        game.send_event(Stacker::Event::release_left);
+                        break;
+                    case SDLK_RIGHT:
+                        game.send_event(Stacker::Event::release_right);
+                        break;
                 }
             }
         }
@@ -114,7 +127,7 @@ int main(int argc, char* args[]) {
         // Render the grid
         for (int i = 0; i < BOARD_HEIGHT; ++i) {
             for (int j = 0; j < BOARD_WIDTH; ++j) {
-                int middle_offset = SCREEN_WIDTH/2 - (SQUARE_SIZE * BOARD_WIDTH)/2;
+                int middle_offset = SCREEN_WIDTH / 2 - (SQUARE_SIZE * BOARD_WIDTH) / 2;
                 SDL_Rect rect = {j * SQUARE_SIZE + middle_offset, i * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE};
                 if (piece.at(j, BOARD_HEIGHT - i - 1)) {
                     SDL_SetRenderDrawColor(renderer, col.r, col.g, col.b, col.a);  // piece's color

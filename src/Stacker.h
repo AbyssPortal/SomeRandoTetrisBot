@@ -1,10 +1,9 @@
 #pragma once
 
+#include <algorithm>
+#include <array>
 #include <deque>
 #include <functional>
-
-#include <array>
-#include <algorithm>
 #include <random>
 
 #include "BitMatrix.h"
@@ -26,7 +25,7 @@ class Timer {
 
    public:
     void tick();
-    Timer(std::function<void()> function) : period(-1), accumulated(0), running(false), repeat(false),  func(function) {};
+    Timer(std::function<void()> function) : period(-1), accumulated(0), running(false), repeat(false), func(function) {};
     void set(double period, bool repeat);
     void cancel();
     bool is_running();
@@ -57,8 +56,7 @@ class BlockPiece {
     bool would_fit(const Matrix& mat, int x, int y) const;
 
    public:
-    BlockPiece(Piece_Type type) : state(Rotate_State::zero), type(type), x(BOARD_WIDTH / 2), y(BOARD_HEIGHT - 2) {};
-
+    BlockPiece(Piece_Type type);
     bool fits(const Matrix& mat) const;
     // tries to move the given offset (+x = right, +y = down), returns whether succeded.
     virtual bool try_offset(const Matrix& mat, int x, int y);
@@ -73,15 +71,18 @@ class BlockPiece {
 
     Matrix location() const;
 
-    Piece_Type get_type() const {return type;};
+    Piece_Type get_type() const { return type; };
 
     ~BlockPiece() = default;
 };
 
 enum class Event {
-    tap_left,
-    tap_right,
-    tap_down,
+    press_down,
+    release_down,
+    press_right,
+    press_left,
+    release_right,
+    release_left,
     tap_cw,
     tap_ccw,
     hard_drop,
@@ -89,14 +90,16 @@ enum class Event {
 };
 
 class StackerGame {
+    const static constexpr double DAS_INTERVAL = 5;
+    const static constexpr double ARR_INTERVAL = 0.1;
+    const static constexpr double SOFT_DROP_INTERVAL = 0.02;
     Matrix board;
 
     BlockPiece active_piece;
 
     std::deque<Event> events;
-    
-    std::deque<Piece_Type> next_queue;
 
+    std::deque<Piece_Type> next_queue;
 
     bool empty_hold;
 
@@ -116,10 +119,26 @@ class StackerGame {
 
     void hard_drop();
 
+    void try_right();
+
+    void try_left();
+
     void try_hold();
 
+    void start_left_arr();
+    void start_right_arr();
 
     Timer gravity;
+
+    Timer soft_drop;
+
+    Timer left_DAS;
+
+    Timer left_ARR;
+
+    Timer right_DAS;
+
+    Timer right_ARR;
 
    public:
     StackerGame();

@@ -171,18 +171,17 @@ const static int OTHER_PIECE_SRS_CW[4][5][2] = {
 
 const static int I_PIECE_SRS_COUNTER_CW[4][5][2] = {
     {{0, 0}, {-1, 0}, {2, 0}, {-1, 2}, {2, -1}},  // zero -> two seventy
-    {{0, 0}, {2, 0}, {-1, 0}, {2, 1}, {-1, -2}},   // ninety -> zero
+    {{0, 0}, {2, 0}, {-1, 0}, {2, 1}, {-1, -2}},  // ninety -> zero
     {{0, 0}, {1, 0}, {-2, 0}, {1, -2}, {-2, 1}},  // one eighty -> ninety
     {{0, 0}, {-2, 0}, {1, 0}, {-2, -1}, {1, 2}},  // two seventy -> one eighty
 };
 
 const static int OTHER_PIECE_SRS_COUNTER_CW[4][5][2] = {
-    {{0, 0}, {1, 0}, {1, 1}, {0, -2}, {1, -2}},  // zero -> two seventy
+    {{0, 0}, {1, 0}, {1, 1}, {0, -2}, {1, -2}},     // zero -> two seventy
     {{0, 0}, {1, 0}, {1, -1}, {0, 2}, {1, 2}},      // ninety -> zero
-    {{0, 0}, {-1, 0}, {-1, 1}, {0, -2}, {-1, -2}},     // one eighty -> ninety
+    {{0, 0}, {-1, 0}, {-1, 1}, {0, -2}, {-1, -2}},  // one eighty -> ninety
     {{0, 0}, {-1, 0}, {-1, -1}, {0, 2}, {-1, 2}},   // two seventy -> one eighty
 };
-
 
 bool BlockPiece::try_90(const Matrix& mat) {
     if (type == Piece_Type::O) {
@@ -211,8 +210,6 @@ bool BlockPiece::try_90(const Matrix& mat) {
     return false;
 }
 
-
-
 bool BlockPiece::try_270(const Matrix& mat) {
     if (type == Piece_Type::O) {
         return true;  // duh can always spin O
@@ -240,6 +237,37 @@ bool BlockPiece::try_270(const Matrix& mat) {
     return false;
 }
 
+int piece_spawn_location(Piece_Type type) {
+    switch (type) {
+        case Piece_Type::O: {
+            return BOARD_WIDTH / 2;
+        }
+        case Piece_Type::T: {
+            return BOARD_WIDTH / 2 - 1;
+        }
+        case Piece_Type::J: {
+            return BOARD_WIDTH / 2 - 1;
+        }
+        case Piece_Type::L: {
+            return BOARD_WIDTH / 2 - 1;
+        }
+        case Piece_Type::S: {
+            return BOARD_WIDTH / 2 - 1;
+        }
+        case Piece_Type::Z: {
+            return BOARD_WIDTH / 2 - 1;
+        }
+        case Piece_Type::I: {
+            return BOARD_WIDTH / 2;
+        }
+
+        default: {
+            PANICF("unkown piece type: %d", (int)type);
+        }
+    }
+}
+
+BlockPiece::BlockPiece(Piece_Type type) : state(Rotate_State::zero), type(type), x(piece_spawn_location(type)), y(BOARD_HEIGHT - 2) {};
 
 const Matrix& StackerGame::get_board() const {
     return board;
@@ -324,6 +352,11 @@ void StackerGame::tick() {
 
     lock_timer.tick();
     gravity.tick();
+    soft_drop.tick();
+    left_DAS.tick();
+    left_ARR.tick();
+    right_DAS.tick();
+    right_ARR.tick();
 }
 
 bool Timer::is_running() {
@@ -346,7 +379,29 @@ std::array<Piece_Type, 7> randomize_bag() {
     return pieces;
 }
 
-StackerGame::StackerGame() : board(), active_piece(Piece_Type::T), events(), next_queue(), empty_hold(true), hold(Piece_Type::T), lock_timer(std::bind(&StackerGame::lock, this)), gravity(std::bind(&StackerGame::drop_one, this)) {
+void StackerGame::start_left_arr() {
+    left_ARR.set(ARR_INTERVAL, true);
+}
+
+void StackerGame::start_right_arr() {
+    right_ARR.set(ARR_INTERVAL, true);
+}
+
+StackerGame::StackerGame() : board(),
+                             active_piece(Piece_Type::T),
+                             events(),
+                             next_queue(),
+                             empty_hold(true),
+                             hold(Piece_Type::T),
+                             lock_timer(std::bind(&StackerGame::lock, this)),
+                             gravity(std::bind(&StackerGame::drop_one, this)),
+                             soft_drop(std::bind(&StackerGame::drop_one, this)),
+                             left_DAS(std::bind(&StackerGame::start_left_arr, this)),
+                             left_ARR(std::bind(&StackerGame::try_left, this)),
+                             right_DAS(std::bind(&StackerGame::start_right_arr, this)),
+                             right_ARR(std::bind(&StackerGame::try_right, this))
+
+{
     auto pieces = randomize_bag();
     active_piece = BlockPiece(pieces[0]);
     for (int i = 1; i < 7; i++) {
@@ -368,33 +423,46 @@ void StackerGame::lock() {
     clear_lines();
 };
 
+void StackerGame::try_left() {
+    if (active_piece.try_offset(board, -1, 0)) {
+        lock_timer.cancel();
+    }
+}
+
+void StackerGame::try_right() {
+    if (active_piece.try_offset(board, 1, 0)) {
+        lock_timer.cancel();
+    }
+}
+
 void StackerGame::handle_event(Event event) {
     switch (event) {
-        case Event::tap_left: {
-            if (active_piece.try_offset(board, -1, 0)) {
-                lock_timer.cancel();
-            }
+        case Event::press_left: {
+            try_left();
+            left_DAS.set(DAS_INTERVAL, false);
+            right_DAS.cancel();
+            right_ARR.cancel();
             break;
         }
-        case Event::tap_right: {
-            if (active_piece.try_offset(board, 1, 0)) {
-                lock_timer.cancel();
-            }
+        case Event::press_right: {
+            try_right();
+            right_DAS.set(DAS_INTERVAL, false);
+            left_DAS.cancel();
+            left_ARR.cancel();
             break;
         }
-        case Event::tap_down: {
+        case Event::press_down: {
             drop_one();
+            soft_drop.set(SOFT_DROP_INTERVAL, true);
             break;
         }
         case Event::tap_cw: {
-
             if (active_piece.try_90(board)) {
                 lock_timer.cancel();
             }
             break;
         }
         case Event::tap_ccw: {
-
             if (active_piece.try_270(board)) {
                 lock_timer.cancel();
             }
@@ -408,6 +476,23 @@ void StackerGame::handle_event(Event event) {
         case Event::hold: {
             try_hold();
             break;
+        }
+        case Event::release_right: {
+            right_DAS.cancel();
+            right_ARR.cancel();
+            break;
+        }
+        case Event::release_left: {
+            left_DAS.cancel();
+            left_ARR.cancel();
+            break;
+        }
+        case Event::release_down: {
+            soft_drop.cancel();
+            break;
+        }
+        default: {
+            PANICF("Unkown event: %d", (int)event);
         }
     }
 }
