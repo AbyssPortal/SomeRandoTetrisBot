@@ -12,9 +12,9 @@ const static int I_PIECE_MINOS[4 /* amount of rots */][4 /*size of i piece*/][2]
 
 const static int T_PIECE_MINOS[4 /* amount of rots */][4 /*size of t piece*/][2] = {
     {{-1, 0}, {0, 0}, {1, 0}, {0, 1}},   // zero
-    {{0, -1}, {1, 0}, {0, 0}, {0, 1}},  // ninety
+    {{0, -1}, {1, 0}, {0, 0}, {0, 1}},   // ninety
     {{0, -1}, {-1, 0}, {0, 0}, {1, 0}},  // one_eighty
-    {{0, -1}, {0, 0}, {-1, 0}, {0, 1}}    // two_seventy
+    {{0, -1}, {0, 0}, {-1, 0}, {0, 1}}   // two_seventy
 };
 
 const static int S_PIECE_MINOS[4 /* amount of rots */][4 /*size of s piece*/][2] = {
@@ -346,7 +346,17 @@ void StackerGame::handle_event(Event event) {
             break;
         }
         case Event::tap_cw: {
-            active_piece.try_90(board);
+
+            if (active_piece.try_90(board)) {
+                lock_timer.cancel();
+            }
+            break;
+        }
+        case Event::tap_ccw: {
+
+            if (active_piece.try_270(board)) {
+                lock_timer.cancel();
+            }
             break;
         }
         case Event::hard_drop: {
@@ -355,26 +365,30 @@ void StackerGame::handle_event(Event event) {
             break;
         }
         case Event::hold: {
-            if (empty_hold) {
-                if (next_queue.size() <= 0) {
-                    auto pieces = randomize_bag();
-                    for (int i = 0; i < 7; i++) {
-                        next_queue.push_back(pieces[i]);
-                    }
-                }
-                hold = active_piece.get_type();
-                active_piece = BlockPiece(next_queue.front());
-                next_queue.pop_front();
-                empty_hold = false;
-            } else {
-                Piece_Type temp = active_piece.get_type();
-                active_piece = BlockPiece(hold);
-                hold = temp;
-            }
-            lock_timer.cancel();
+            try_hold();
             break;
         }
     }
+}
+
+void StackerGame::try_hold() {
+    if (empty_hold) {
+        if (next_queue.size() <= 0) {
+            auto pieces = randomize_bag();
+            for (int i = 0; i < 7; i++) {
+                next_queue.push_back(pieces[i]);
+            }
+        }
+        hold = active_piece.get_type();
+        active_piece = BlockPiece(next_queue.front());
+        next_queue.pop_front();
+        empty_hold = false;
+    } else {
+        Piece_Type temp = active_piece.get_type();
+        active_piece = BlockPiece(hold);
+        hold = temp;
+    }
+    lock_timer.cancel();
 }
 
 void StackerGame::drop_one() {

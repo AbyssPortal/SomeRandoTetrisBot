@@ -83,6 +83,7 @@ enum class Event {
     tap_right,
     tap_down,
     tap_cw,
+    tap_ccw,
     hard_drop,
     hold,
 };
@@ -114,6 +115,8 @@ class StackerGame {
     void clear_lines();
 
     void hard_drop();
+
+    void try_hold();
 
 
     Timer gravity;
