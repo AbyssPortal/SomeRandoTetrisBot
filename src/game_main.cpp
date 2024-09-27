@@ -7,14 +7,19 @@
 
 #include "Stacker.h"
 
-const int SCREEN_WIDTH = 640;
-const int SCREEN_HEIGHT = 480;
+const int SCREEN_WIDTH = 1920;
+const int SCREEN_HEIGHT = 1080;
 const int FPS = 60;
 const int FRAME_DELAY = 1000 / FPS;
 
 const int BOARD_WIDTH = 10;
 const int BOARD_HEIGHT = 20;
-const int SQUARE_SIZE = 20;
+const int SQUARE_SIZE = 40;
+
+const static int middle_offset_horizontal = SCREEN_WIDTH / 2 - (SQUARE_SIZE * BOARD_WIDTH) / 2;
+
+
+void draw_piece(SDL_Renderer* renderer, Stacker::Piece_Type type, int offsetx, int offsety);
 
 SDL_Color get_piece_color(Stacker::Piece_Type type) {
     static const std::unordered_map<Stacker::Piece_Type, SDL_Color> piece_colors = {
@@ -32,6 +37,18 @@ SDL_Color get_piece_color(Stacker::Piece_Type type) {
         return it->second;
     } else {
         return {255, 255, 255, 255};  // default to white if not found
+    }
+}
+
+
+void draw_next_queue(SDL_Renderer* renderer, const Stacker::StackerGame& game) {
+    int counter = 0;
+    for (Stacker::Piece_Type piece : game.get_next_queue()) {
+        if (counter >= Stacker::StackerGame::NEXT_QUEUE_MIN_SIZE) {
+            break;
+        }
+        draw_piece(renderer, piece, middle_offset_horizontal + 11 * SQUARE_SIZE, 4*counter*SQUARE_SIZE);
+        counter++;
     }
 }
 
@@ -127,8 +144,7 @@ int main(int argc, char* args[]) {
         // Render the grid
         for (int i = 0; i < BOARD_HEIGHT; ++i) {
             for (int j = 0; j < BOARD_WIDTH; ++j) {
-                int middle_offset = SCREEN_WIDTH / 2 - (SQUARE_SIZE * BOARD_WIDTH) / 2;
-                SDL_Rect rect = {j * SQUARE_SIZE + middle_offset, i * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE};
+                SDL_Rect rect = {j * SQUARE_SIZE + middle_offset_horizontal, i * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE};
                 if (piece.at(j, BOARD_HEIGHT - i - 1)) {
                     SDL_SetRenderDrawColor(renderer, col.r, col.g, col.b, col.a);  // piece's color
                 } else if (board.at(j, BOARD_HEIGHT - i - 1)) {
@@ -144,6 +160,12 @@ int main(int argc, char* args[]) {
             }
         }
 
+        if (!game.is_hold_empty()) {
+            draw_piece(renderer, game.get_hold(), middle_offset_horizontal - SQUARE_SIZE * 5, 0);
+        }
+
+        draw_next_queue(renderer, game);
+
         SDL_RenderPresent(renderer);
 
         Uint32 frameTime = SDL_GetTicks() - frameStart;
@@ -157,4 +179,38 @@ int main(int argc, char* args[]) {
     SDL_Quit();
 
     return 0;
+}
+
+void draw_piece(SDL_Renderer* renderer, Stacker::Piece_Type type, int offsetx, int offsety) {  // slow implementation - improve later if neededd
+    for (int j = 2; j < 7; ++j) {
+        SDL_Rect rect = {(j - 2) * SQUARE_SIZE + offsetx, offsety, SQUARE_SIZE, SQUARE_SIZE};
+
+        SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0xFF);  // Black
+
+        SDL_RenderFillRect(renderer, &rect);
+
+        // Draw the outline
+        SDL_SetRenderDrawColor(renderer, 0x80, 0x80, 0x80, 0xFF);  // Gray
+        SDL_RenderDrawRect(renderer, &rect);
+    }
+    Stacker::Matrix location = Stacker::BlockPiece(type).location();
+
+    for (int i = 0; i < 3; ++i) {
+        for (int j = 2; j < 7; ++j) {
+            SDL_Rect rect = {(j - 2) * SQUARE_SIZE + offsetx, (i + 1) * SQUARE_SIZE + offsety, SQUARE_SIZE, SQUARE_SIZE};
+
+            SDL_Color col = get_piece_color(type);
+
+            if (location.at(j, BOARD_HEIGHT - i - 1)) {
+                SDL_SetRenderDrawColor(renderer, col.r, col.g, col.b, col.a);  // piece's color
+            } else {
+                SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0xFF);  // Black
+            }
+            SDL_RenderFillRect(renderer, &rect);
+
+            // Draw the outline
+            SDL_SetRenderDrawColor(renderer, 0x80, 0x80, 0x80, 0xFF);  // Gray
+            SDL_RenderDrawRect(renderer, &rect);
+        }
+    }
 }

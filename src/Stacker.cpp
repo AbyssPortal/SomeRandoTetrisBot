@@ -277,7 +277,7 @@ const BlockPiece& StackerGame::get_active() const {
     return active_piece;
 }
 
-void StackerGame::debug_print() {
+void StackerGame::debug_print() const {
     Matrix active = active_piece.location();
 
     for (int row = BOARD_HEIGHT - 1; row >= 0; row--) {
@@ -412,7 +412,7 @@ StackerGame::StackerGame() : board(),
 
 void StackerGame::lock() {
     board |= active_piece.location();
-    if (next_queue.size() <= 0) {
+    if (next_queue.size() <= NEXT_QUEUE_MIN_SIZE) {
         auto pieces = randomize_bag();
         for (int i = 0; i < 7; i++) {
             next_queue.push_back(pieces[i]);
@@ -499,7 +499,7 @@ void StackerGame::handle_event(Event event) {
 
 void StackerGame::try_hold() {
     if (empty_hold) {
-        if (next_queue.size() <= 0) {
+        if (next_queue.size() <= NEXT_QUEUE_MIN_SIZE) {
             auto pieces = randomize_bag();
             for (int i = 0; i < 7; i++) {
                 next_queue.push_back(pieces[i]);
@@ -550,4 +550,16 @@ void Timer::tick() {
         }
         this->accumulated += 1;
     }
+}
+
+const std::deque<Piece_Type>& StackerGame::get_next_queue() const {
+    return next_queue;
+}
+
+Piece_Type StackerGame::get_hold() const {
+    return hold;
+}
+
+bool StackerGame::is_hold_empty() const {
+    return empty_hold;
 }

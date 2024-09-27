@@ -91,8 +91,9 @@ enum class Event {
 
 class StackerGame {
     const static constexpr double DAS_INTERVAL = 5;
-    const static constexpr double ARR_INTERVAL = 0.1;
-    const static constexpr double SOFT_DROP_INTERVAL = 0.02;
+    const static constexpr double ARR_INTERVAL = 0.01;
+    const static constexpr double SOFT_DROP_INTERVAL = 0.01;
+
     Matrix board;
 
     BlockPiece active_piece;
@@ -141,6 +142,7 @@ class StackerGame {
     Timer right_ARR;
 
    public:
+    const static constexpr int NEXT_QUEUE_MIN_SIZE = 5;
     StackerGame();
 
     void send_event(Event event);
@@ -151,6 +153,14 @@ class StackerGame {
 
     const BlockPiece& get_active() const;
 
-    void debug_print();
+    void debug_print() const;
+
+    const std::deque<Piece_Type>& get_next_queue() const;
+
+    Piece_Type get_hold() const;
+
+    BlockPiece get_ghost() const;
+
+    bool is_hold_empty() const;
 };
 }  // namespace Stacker
