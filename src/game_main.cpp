@@ -112,9 +112,10 @@ int main(int argc, char* args[]) {
         // Render the grid
         for (int i = 0; i < BOARD_HEIGHT; ++i) {
             for (int j = 0; j < BOARD_WIDTH; ++j) {
-                SDL_Rect rect = {j * SQUARE_SIZE, i * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE};
+                int middle_offset = SCREEN_WIDTH/2 - (SQUARE_SIZE * BOARD_WIDTH)/2;
+                SDL_Rect rect = {j * SQUARE_SIZE + middle_offset, i * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE};
                 if (piece.at(j, BOARD_HEIGHT - i - 1)) {
-                    SDL_SetRenderDrawColor(renderer, col.r, col.g, col.b, col.a);  // pieces color
+                    SDL_SetRenderDrawColor(renderer, col.r, col.g, col.b, col.a);  // piece's color
                 } else if (board.at(j, BOARD_HEIGHT - i - 1)) {
                     SDL_SetRenderDrawColor(renderer, 0xFF, 0xFF, 0xFF, 0xFF);  // White
                 } else {
