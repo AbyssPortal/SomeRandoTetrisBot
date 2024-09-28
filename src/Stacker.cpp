@@ -409,8 +409,6 @@ ClearInformation StackerGame::clear_lines() {
         }
     }
 
-    std::cout << std::endl;
-
     return result;
 }
 

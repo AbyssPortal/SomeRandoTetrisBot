@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "Stacker.h"
+#include "StackerBot.h"
 
 const int SCREEN_WIDTH = 1920;
 const int SCREEN_HEIGHT = 1080;
@@ -46,7 +47,7 @@ SDL_Texture* load_texture(SDL_Renderer* renderer, const char* path) {
 SDL_Color get_piece_color(Stacker::Piece_Type type) {
     static const std::unordered_map<Stacker::Piece_Type, SDL_Color> piece_colors = {
         {Stacker::Piece_Type::I, {0, 255, 255, 255}},  // teal
-        {Stacker::Piece_Type::T, {255, 0, 255, 255}},  // fuchsia
+        {Stacker::Piece_Type::T, {255, 0, 255, 255}},  // fuchsia`
         {Stacker::Piece_Type::J, {0, 0, 255, 255}},    // blue
         {Stacker::Piece_Type::L, {255, 165, 0, 255}},  // orange
         {Stacker::Piece_Type::Z, {255, 0, 0, 255}},    // red
@@ -108,11 +109,13 @@ int main(int argc, char* args[]) {
     bool quit = false;
     SDL_Event e;
 
-    Stacker::StackerGame game;
+    Stacker::StackerBot bot;
     std::srand(static_cast<unsigned int>(std::time(nullptr)));
 
     while (!quit) {
         Uint32 frameStart = SDL_GetTicks();
+
+        bool do_bot_move = false;
 
         while (SDL_PollEvent(&e) != 0) {
             if (e.type == SDL_QUIT) {
@@ -121,57 +124,129 @@ int main(int argc, char* args[]) {
             if (e.type == SDL_KEYDOWN && e.key.repeat == false) {
                 switch (e.key.keysym.sym) {
                     case SDLK_DOWN:
-                        game.send_event(Stacker::Event::press_down);
+                        bot.get_game().send_event(Stacker::Event::press_down);
                         break;
                     case SDLK_LEFT:
-                        game.send_event(Stacker::Event::press_left);
+                        bot.get_game().send_event(Stacker::Event::press_left);
                         break;
                     case SDLK_RIGHT:
-                        game.send_event(Stacker::Event::press_right);
+                        bot.get_game().send_event(Stacker::Event::press_right);
                         break;
                     case SDLK_UP:
-                        game.send_event(Stacker::Event::tap_cw);
+                        bot.get_game().send_event(Stacker::Event::tap_cw);
                         break;
                     case SDLK_c:
-                        game.send_event(Stacker::Event::hold);
+                        bot.get_game().send_event(Stacker::Event::hold);
                         break;
                     case SDLK_SPACE:
-                        game.send_event(Stacker::Event::hard_drop);
+                        bot.get_game().send_event(Stacker::Event::hard_drop);
                         break;
                     case SDLK_z:
-                        game.send_event(Stacker::Event::tap_ccw);
+                        bot.get_game().send_event(Stacker::Event::tap_ccw);
                         break;
                     case SDLK_a:
-                        game.send_event(Stacker::Event::tap_180);
+                        bot.get_game().send_event(Stacker::Event::tap_180);
                         break;
                     case SDLK_r:
-                        game.reset();
+                        bot.get_game().reset();
+                        break;
+                    case SDLK_F1:
+                        do_bot_move = true;
                         break;
                 }
             }
             if (e.type == SDL_KEYUP) {
                 switch (e.key.keysym.sym) {
                     case SDLK_DOWN:
-                        game.send_event(Stacker::Event::release_down);
+                        bot.get_game().send_event(Stacker::Event::release_down);
                         break;
                     case SDLK_LEFT:
-                        game.send_event(Stacker::Event::release_left);
+                        bot.get_game().send_event(Stacker::Event::release_left);
                         break;
                     case SDLK_RIGHT:
-                        game.send_event(Stacker::Event::release_right);
+                        bot.get_game().send_event(Stacker::Event::release_right);
                         break;
                 }
             }
         }
-        game.tick();
+        bot.get_game().tick();
         // std::cout << std::endl << std::endl << std::endl << std::endl << "current boardstate:" << std::endl;
         // game.debug_print();
 
         // extract info
-        Stacker::Matrix piece = game.get_active().location();
-        Stacker::Matrix ghost = game.get_ghost().location();
-        SDL_Color col = get_piece_color(game.get_active().get_type());
-        const Stacker::Matrix& board = game.get_board();
+        Stacker::Matrix piece = bot.get_game().get_active().location();
+        Stacker::Matrix ghost = bot.get_game().get_ghost().location();
+        Stacker::BlockPiece bot_suggestion = bot.get_game().get_active();
+        {
+            Stacker::MoveInfo best_move = bot.suggest_move();
+
+            while (!best_move.move.empty()) {
+                Stacker::MovePart move_part = best_move.move.front();
+                best_move.move.pop_front();
+                switch (move_part) {
+                    case Stacker::MovePart::left: {
+                        bot_suggestion.try_offset(bot.get_game().get_board(), -1, 0);
+                        if (do_bot_move) {
+                            bot.get_game().send_event(Stacker::Event::press_left);
+                            bot.get_game().send_event(Stacker::Event::release_left);
+                        }
+                        break;
+                    }
+                    case Stacker::MovePart::right: {
+                        bot_suggestion.try_offset(bot.get_game().get_board(), 1, 0);
+                        if (do_bot_move) {
+                            bot.get_game().send_event(Stacker::Event::press_right);
+                            bot.get_game().send_event(Stacker::Event::release_right);
+                        }
+                        break;
+                    }
+                    case Stacker::MovePart::down: {
+                        bot_suggestion.try_offset(bot.get_game().get_board(), 0, -1);
+                        if (do_bot_move) {
+                            bot.get_game().send_event(Stacker::Event::press_down);
+                            bot.get_game().send_event(Stacker::Event::release_down);
+                        }
+                        break;
+                    }
+                    case Stacker::MovePart::hard_drop: {
+                        while (bot_suggestion.try_offset(bot.get_game().get_board(), 0, -1));
+                        if (do_bot_move) {
+                            bot.get_game().send_event(Stacker::Event::hard_drop);
+                        }
+                        break;
+                    }
+                    case Stacker::MovePart::cw: {
+                        bot_suggestion.try_90(bot.get_game().get_board());
+                        if (do_bot_move) {
+                            bot.get_game().send_event(Stacker::Event::tap_cw);
+                        }
+                        break;
+                    }
+                    case Stacker::MovePart::ccw: {
+                        bot_suggestion.try_270(bot.get_game().get_board());
+                        if (do_bot_move) {
+                            bot.get_game().send_event(Stacker::Event::tap_ccw);
+                        }
+                        break;
+                    }
+                    case Stacker::MovePart::one_eighty: {
+                        bot_suggestion.try_180(bot.get_game().get_board());
+                        if (do_bot_move) {
+                            bot.get_game().send_event(Stacker::Event::tap_180);
+                        }
+                        break;
+                    }
+                    default: {
+                        PANICF("unkown movepart: %d", (int)(move_part));
+                    }
+                }
+            }
+        }
+
+        Stacker::Matrix bot_ghost = bot_suggestion.location();
+
+        SDL_Color col = get_piece_color(bot.get_game().get_active().get_type());
+        const Stacker::Matrix& board = bot.get_game().get_board();
 
         SDL_SetRenderDrawColor(renderer, 0xFF, 0xFF, 0xFF, 0xFF);
         SDL_RenderClear(renderer);
@@ -184,6 +259,8 @@ int main(int argc, char* args[]) {
                     SDL_SetRenderDrawColor(renderer, col.r, col.g, col.b, col.a);  // piece's color
                 } else if (board.at(j, BOARD_HEIGHT - i - 1)) {
                     SDL_SetRenderDrawColor(renderer, 0xFF, 0xFF, 0xFF, 0xFF);  // White
+                } else if (bot_ghost.at(j, BOARD_HEIGHT - i - 1)) {
+                    SDL_SetRenderDrawColor(renderer, 0x87, 0xB5, 0x38, col.a);  // olive oil
                 } else if (ghost.at(j, BOARD_HEIGHT - i - 1)) {
                     SDL_SetRenderDrawColor(renderer, col.r / 2, col.g / 2, col.b / 2, col.a);  // piece's color
                 } else {
@@ -197,12 +274,12 @@ int main(int argc, char* args[]) {
             }
         }
 
-        if (!game.is_hold_empty()) {
-            draw_piece(renderer, game.get_hold(), middle_offset_horizontal - SQUARE_SIZE * 5, 0);
+        if (!bot.get_game().is_hold_empty()) {
+            draw_piece(renderer, bot.get_game().get_hold(), middle_offset_horizontal - SQUARE_SIZE * 5, 0);
         }
 
         {
-            auto clear = game.get_last_clear();
+            auto clear = bot.get_game().get_last_clear();
             if (clear.is_spin == true) {
                 SDL_Rect t_spin_rect;
                 t_spin_rect.x = middle_offset_horizontal - 350;  // x position
@@ -244,7 +321,7 @@ int main(int argc, char* args[]) {
             }
         }
 
-        draw_next_queue(renderer, game);
+        draw_next_queue(renderer, bot.get_game());
 
         SDL_RenderPresent(renderer);
 
