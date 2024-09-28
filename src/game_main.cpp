@@ -180,67 +180,14 @@ int main(int argc, char* args[]) {
         {
             Stacker::MoveInfo best_move = bot.suggest_move();
 
-            while (!best_move.move.empty()) {
-                Stacker::MovePart move_part = best_move.move.front();
-                best_move.move.pop_front();
-                switch (move_part) {
-                    case Stacker::MovePart::left: {
-                        bot_suggestion.try_offset(bot.get_game().get_board(), -1, 0);
-                        if (do_bot_move) {
-                            bot.get_game().send_event(Stacker::Event::press_left);
-                            bot.get_game().send_event(Stacker::Event::release_left);
-                        }
-                        break;
-                    }
-                    case Stacker::MovePart::right: {
-                        bot_suggestion.try_offset(bot.get_game().get_board(), 1, 0);
-                        if (do_bot_move) {
-                            bot.get_game().send_event(Stacker::Event::press_right);
-                            bot.get_game().send_event(Stacker::Event::release_right);
-                        }
-                        break;
-                    }
-                    case Stacker::MovePart::down: {
-                        bot_suggestion.try_offset(bot.get_game().get_board(), 0, -1);
-                        if (do_bot_move) {
-                            bot.get_game().send_event(Stacker::Event::press_down);
-                            bot.get_game().send_event(Stacker::Event::release_down);
-                        }
-                        break;
-                    }
-                    case Stacker::MovePart::hard_drop: {
-                        while (bot_suggestion.try_offset(bot.get_game().get_board(), 0, -1));
-                        if (do_bot_move) {
-                            bot.get_game().send_event(Stacker::Event::hard_drop);
-                        }
-                        break;
-                    }
-                    case Stacker::MovePart::cw: {
-                        bot_suggestion.try_90(bot.get_game().get_board());
-                        if (do_bot_move) {
-                            bot.get_game().send_event(Stacker::Event::tap_cw);
-                        }
-                        break;
-                    }
-                    case Stacker::MovePart::ccw: {
-                        bot_suggestion.try_270(bot.get_game().get_board());
-                        if (do_bot_move) {
-                            bot.get_game().send_event(Stacker::Event::tap_ccw);
-                        }
-                        break;
-                    }
-                    case Stacker::MovePart::one_eighty: {
-                        bot_suggestion.try_180(bot.get_game().get_board());
-                        if (do_bot_move) {
-                            bot.get_game().send_event(Stacker::Event::tap_180);
-                        }
-                        break;
-                    }
-                    default: {
-                        PANICF("unkown movepart: %d", (int)(move_part));
-                    }
-                }
+            if (best_move.move.front() == Stacker::MovePart::hold) {
+                bot_suggestion = bot.get_game().is_hold_empty() ? Stacker::BlockPiece(bot.get_game().get_next_queue().front()) : Stacker::BlockPiece(bot.get_game().get_hold());
             }
+
+            if (do_bot_move) {
+                Stacker::do_move(best_move, bot.get_game());
+            }
+            Stacker::move_block_piece(best_move, bot.get_game().get_board(), bot_suggestion);
         }
 
         Stacker::Matrix bot_ghost = bot_suggestion.location();

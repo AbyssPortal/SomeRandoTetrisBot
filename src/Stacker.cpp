@@ -1,9 +1,9 @@
 
 #include "Stacker.h"
 
-#define change_lmwr(value)                                                       \
-    do {                                                                         \
-        last_move_was_rotation = (value);                                        \
+#define change_lmwr(value)                \
+    do {                                  \
+        last_move_was_rotation = (value); \
     } while (0)
 
 using namespace Stacker;
