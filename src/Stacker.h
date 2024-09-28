@@ -10,9 +10,9 @@
 
 namespace Stacker {
 
-const static unsigned int BOARD_HEIGHT = 20;
+const static int BOARD_HEIGHT = 20;
 
-const static unsigned int BOARD_WIDTH = 10;
+const static int BOARD_WIDTH = 10;
 
 typedef BitMatrix<BOARD_WIDTH, BOARD_HEIGHT> Matrix;
 

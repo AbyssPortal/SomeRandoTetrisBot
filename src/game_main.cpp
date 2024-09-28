@@ -121,6 +121,9 @@ int main(int argc, char* args[]) {
             if (e.type == SDL_QUIT) {
                 quit = true;
             }
+            if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_F1) {
+                do_bot_move = true;
+            }
             if (e.type == SDL_KEYDOWN && e.key.repeat == false) {
                 switch (e.key.keysym.sym) {
                     case SDLK_DOWN:
@@ -149,9 +152,6 @@ int main(int argc, char* args[]) {
                         break;
                     case SDLK_r:
                         bot.get_game().reset();
-                        break;
-                    case SDLK_F1:
-                        do_bot_move = true;
                         break;
                 }
             }

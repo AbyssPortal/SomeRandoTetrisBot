@@ -464,13 +464,13 @@ StackerGame::StackerGame() : board(),
                              empty_hold(true),
                              hold(Piece_Type::T),
                              lock_timer(std::bind(&StackerGame::lock, this)),
+                             last_clear(false, 0),
                              gravity(std::bind(&StackerGame::drop_one, this)),
                              soft_drop(std::bind(&StackerGame::drop_one, this)),
                              left_DAS(std::bind(&StackerGame::start_left_arr, this)),
                              left_ARR(std::bind(&StackerGame::try_left, this)),
                              right_DAS(std::bind(&StackerGame::start_right_arr, this)),
-                             right_ARR(std::bind(&StackerGame::try_right, this)),
-                             last_clear(false, 0)
+                             right_ARR(std::bind(&StackerGame::try_right, this))
 
 {
     auto pieces = randomize_bag();

@@ -24,6 +24,12 @@ struct MoveInfo{
     std::deque<MovePart> move;
     MoveInfo() {};
     MoveInfo(const MoveInfo& other) : move(other.move) {}
+    MoveInfo& operator=(const MoveInfo& other) {
+        if (this != &other) {
+            move = other.move;
+        }
+        return *this;
+    }
 };
 
 void do_move(const MoveInfo&, StackerGame& game);
