@@ -573,13 +573,14 @@ bool Stacker::StackerBot::find_moves(Stacker::BlockPiece& pretend_piece, double&
         }
     }
     if (pretend_piece.get_type() == Piece_Type::T) {
-        for (int i = -(int)BOARD_WIDTH; i < (int)BOARD_WIDTH; i++) {
+        for (int i = low_search; i <= high_search; i++) {
             {
                 MoveInfo curr_move = simple_t_spin(i, Rotate_State::ninety);
                 double eval = evaluate_move(game.get_board(), pretend_piece, curr_move);
                 if (eval > curr_best) {
                     best_move = curr_move;
                     curr_best = eval;
+                    res = true;
                 }
             }
             {
@@ -588,6 +589,7 @@ bool Stacker::StackerBot::find_moves(Stacker::BlockPiece& pretend_piece, double&
                 if (eval > curr_best) {
                     best_move = curr_move;
                     curr_best = eval;
+                    res = true;
                 }
             }
         }
