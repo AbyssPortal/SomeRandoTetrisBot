@@ -35,6 +35,61 @@ MoveInfo simple_move(int horizontal, Rotate_State state) {
     return result;
 }
 
+// rotates, moves horizontal r/l, soft drops, rotates again, and then hard drops
+MoveInfo simple_t_spin(int horizontal, Rotate_State state) {
+    MoveInfo result;
+    result.move.clear();
+    switch (state) {
+        case Rotate_State::zero:
+            PANIC("t spins must be cw or ccw");
+            break;
+        case Rotate_State::two_seventy:
+            result.move.push_back(MovePart::ccw);
+            break;
+        case Rotate_State::one_eighty:
+            PANIC("t spins must be cw or ccw");
+            break;
+        case Rotate_State::ninety:
+            result.move.push_back(MovePart::cw);
+            break;
+
+        default:
+            break;
+    }
+    if (horizontal >= 0) {
+        for (int j = 0; j < horizontal; j++) {
+            result.move.push_back(MovePart::right);
+        }
+    } else {
+        for (int j = 0; j < -horizontal; j++) {
+            result.move.push_back(MovePart::left);
+        }
+    }
+    for (int i = 0; i < 20; i++) {  // bad code
+        result.move.push_back(MovePart::down);
+    }
+    switch (state) {
+        case Rotate_State::zero:
+            PANIC("t spins must be cw or ccw");
+            break;
+        case Rotate_State::two_seventy:
+            result.move.push_back(MovePart::ccw);
+            break;
+        case Rotate_State::one_eighty:
+            PANIC("t spins must be cw or ccw");
+            break;
+        case Rotate_State::ninety:
+            result.move.push_back(MovePart::cw);
+            break;
+
+        default:
+            break;
+    }
+    result.move.push_back(MovePart::hard_drop);
+
+    return result;
+}
+
 template <typename T>
 T abs(T value) {
     return (value < 0) ? -value : value;
@@ -51,6 +106,13 @@ struct Setup {
     int depth;
     Setup() : t_spin(false), quad(false), depth(0) {};
 };
+
+struct HoleInformation {
+    int hole_count;
+    int overhang_count;
+};
+
+const static int MAX_OVERHANGS = 1;
 
 void evaluate_t_spin_and_quad(const Matrix& mat, int height_map[BOARD_WIDTH], Setup result[BOARD_WIDTH]) {
     int min_height = BOARD_HEIGHT;
@@ -75,11 +137,52 @@ void evaluate_t_spin_and_quad(const Matrix& mat, int height_map[BOARD_WIDTH], Se
             }
         }
     }
+
+    for (int col = 1; col < (int)BOARD_WIDTH - 1; col++) {
+        int heightL = height_map[col - 1];
+        int height = height_map[col];
+        int heightR = height_map[col + 1];
+        if (height < heightL && height < heightR) {  // check that there's a hole in the bottom
+            if (heightR == heightL) {
+                continue;  // can't have a t spin setup with even sides
+            } else if (heightR < heightL) {
+                if (heightR >= BOARD_HEIGHT - 3) {
+                    continue;  // too high to have a setup
+                }
+                if (!mat.at(col - 1, heightR) && mat.at(col - 1, heightR + 1)) {
+                    /* look for this shape
+                    O
+
+                    O  O
+                    O
+                    */
+                    result[col].t_spin = true;
+                }
+            } else {
+                if (heightL >= BOARD_HEIGHT - 3) {
+                    continue;  // too high to have a setup
+                }
+                if (!mat.at(col + 1, heightL) && mat.at(col + 1, heightL + 1)) {
+                    /* look for this shape
+                       O
+
+                    O  O
+                    O
+                    */
+                    result[col].t_spin = true;
+                }
+            }
+        }
+    }
 }
 
-int find_holes_and_height_map(const Matrix& mat, int height_map[BOARD_WIDTH]) {
-    int holes = 0;
+HoleInformation find_holes_and_height_map(const Matrix& mat, int height_map[BOARD_WIDTH]) {
+    HoleInformation result;
+    result.hole_count = 0;
+    result.overhang_count = 0;
+
     for (int col = 0; col < BOARD_WIDTH; col++) {
+        height_map[col] = BOARD_HEIGHT;
         bool sky_light = true;
         for (int row = BOARD_HEIGHT - 1; row >= 0; row--) {
             if (mat.at(col, row)) {
@@ -88,35 +191,54 @@ int find_holes_and_height_map(const Matrix& mat, int height_map[BOARD_WIDTH]) {
                 }
             } else {
                 if (!sky_light) {
-                    holes++;
+                    result.hole_count++;
                 } else {
                     height_map[col] = row;
                 }
             }
         }
     }
-    return holes;
+
+    for (int col = 0; col < BOARD_WIDTH; col++) {
+        for (int row = height_map[col] - 1; row >= 0; row--) {
+            if (!mat.at(col, row)) {
+                if ((col - 1 > 0 && height_map[col - 1] < row) || (col + 1 <= BOARD_WIDTH && height_map[col + 1] < row)) {
+                    result.hole_count--;
+                    result.overhang_count++;
+                }
+            }
+        }
+    }
+    return result;
 }
 
-double evaluate_board(const Matrix& mat, int height_map[BOARD_WIDTH], int hole_count) {
+double evaluate_board(const Matrix& mat, int height_map[BOARD_WIDTH], HoleInformation hole_info) {
     const double hole_cost = -100;
+    const double overhang_cost = -30;
     const static int diff_count = 4;
-    const double diff_cost[diff_count] = {-0.2, -0.6, -1.2, -1};
-    const double larger_diff_cost = -2;
+    const double diff_cost[diff_count] = {-0.2, -0.6, -2.4, -9.6};
+    const double larger_diff_cost = -3;
     const int setup_count = 3;
-    const double t_spin_setups_reward[setup_count] = {0, 9, -1};
+    const double t_spin_setups_reward[setup_count] = {0, 40, -1};
     const double both_setup_reward = 25;
     const double too_many_setups_cost = -50;
     const double max_height_reward[BOARD_HEIGHT] =
-        {0, 1, 2, 3, 4,             /* 5*/
-         15, 15, 15, 15, 15,           /* 10*/
-         15, 0, -50, -100, -200, /*15*/
-         -1000, -1000, -10000, -10000, -10000 /*20*/};
+        {0, 1, 2, 3, 15,     /* 5*/
+         15, 15, 15, 15, 15, /* 10*/
+         0, -0, -0, -0, -0,  /*15*/
+         -0, -0, -0, -0, -0 /*20*/};
+    const double max_height_cost[BOARD_HEIGHT] =  // reward is applied only when not dire, cost is laways applied
+        {0, 0, 0, 0, 0,                           /* 5*/
+         0, 0, 0, 0, 0,                           /* 10*/
+         0, -100, -150, -300, -450,               /*15*/
+         -600, -750, -5000, -10000, -100000 /*20*/};
     const double quad_hole_good_or_bad[BOARD_WIDTH] = {2, -0.5, 0.5, 1.5, 1.25, 1.25, 1.5, 0.5, -0.5, 2};
+    const double overhang_with_no_t_spin_cost = -20;
 
     double value = 0;
 
-    value += hole_cost * hole_count;
+    value += hole_cost * hole_info.hole_count;
+    value += overhang_cost * hole_info.overhang_count;
 
     for (int col = 0; col < BOARD_WIDTH - 1; col++) {
         int diff = abs(height_map[col] - height_map[col + 1]);
@@ -126,13 +248,16 @@ double evaluate_board(const Matrix& mat, int height_map[BOARD_WIDTH], int hole_c
             value += diff_cost[diff];
         }
     }
-    if (hole_count <= 0) {
-        int max_height = 0;
-        for (int col = 0; col < BOARD_WIDTH; col++) {
-            if (height_map[col] > max_height) {
-                max_height = height_map[col];
-            }
+    int max_height = 0;
+    for (int col = 0; col < BOARD_WIDTH; col++) {
+        if (height_map[col] > max_height) {
+            max_height = height_map[col];
         }
+    }
+
+    value += max_height_cost[max_height] / 10;
+
+    if (hole_info.hole_count <= 0 && hole_info.overhang_count <= MAX_OVERHANGS) {
         value += max_height_reward[max_height] / 10;
 
         Setup setups[BOARD_WIDTH];
@@ -156,6 +281,11 @@ double evaluate_board(const Matrix& mat, int height_map[BOARD_WIDTH], int hole_c
         }
         if (t_spin_count < setup_count) {
             value += t_spin_setups_reward[t_spin_count];
+            if (t_spin_count == 0) {
+                if (hole_info.overhang_count > 0) {
+                    value += overhang_with_no_t_spin_cost;
+                }
+            }
         }
         if (both_setup) {
             value += both_setup_reward;
@@ -167,52 +297,66 @@ double evaluate_board(const Matrix& mat, int height_map[BOARD_WIDTH], int hole_c
     return value;
 }
 
-double clear_value(Matrix mat, BlockPiece piece, const MoveInfo& info) {
-    int full_so_far = 0;
+double clear_value(const ClearInformation& info) {
     double value = 0;
 
-    // calculate where_to
-    for (int row = 0; row < (int)BOARD_HEIGHT; row++) {
-        bool full_line = true;
-        for (int col = 0; col < (int)BOARD_WIDTH; col++) {
-            if (!mat.at(col, row)) {
-                full_line = false;
+    if (!info.is_spin) {
+        switch (info.clear_count) {
+            case 0: {
+                value += 0;
                 break;
             }
+            case 1: {
+                value += -1;
+                break;
+            }
+            case 2: {
+                value += -3;
+                break;
+            }
+            case 3: {
+                value += -6;
+                break;
+            }
+            case 4: {
+                value += 48;
+                break;
+            }
+            default: {
+                PANICF("somehow cleared %d lines what the sigma\n", info.clear_count);
+            }
         }
-        if (full_line) {
-            full_so_far++;
-        }
-    }
-    switch (full_so_far) {
-        case 0: {
-            value += 0;
-            break;
-        }
-        case 1: {
-            value += -1;
-            break;
-        }
-        case 2: {
-            value += -3;
-            break;
-        }
-        case 3: {
-            value += -6;
-            break;
-        }
-        case 4: {
-            value += 48;
-            break;
-        }
-        default: {
-            PANICF("somehow cleared %d lines what the sigma\n", full_so_far);
+    } else {
+        switch (info.clear_count) {
+            case 0: {
+                value += 0;
+                break;
+            }
+            case 1: {
+                value += 50;
+                break;
+            }
+            case 2: {
+                value += 150;
+                break;
+            }
+            case 3: {
+                value += 1000;
+                break;
+            }
+            case 4: {
+                value += 10000;
+                break;
+            }
+            default: {
+                PANICF("somehow cleared %d lines what the sigma\n", info.clear_count);
+            }
         }
     }
     return value;
 }
 
-void clear_lines(Matrix& mat) {
+ClearInformation clear_lines(Matrix& board, BlockPiece active_piece, bool last_move_was_rotation) {
     int where_to[BOARD_HEIGHT];
 
     // where_to[0] stores where the 0th line *went*, -1 being removed from existence. the same goes for general i
@@ -223,7 +367,7 @@ void clear_lines(Matrix& mat) {
     for (int row = 0; row < (int)BOARD_HEIGHT; row++) {
         bool full_line = true;
         for (int col = 0; col < (int)BOARD_WIDTH; col++) {
-            if (!mat.at(col, row)) {
+            if (!board.at(col, row)) {
                 full_line = false;
                 break;
             }
@@ -236,6 +380,8 @@ void clear_lines(Matrix& mat) {
         }
     }
 
+    ClearInformation result(active_piece.get_type() == Piece_Type::T && active_piece.three_corners(board) && last_move_was_rotation, full_so_far);
+
     bool done[BOARD_HEIGHT];
     for (int i = 0; i < (int)BOARD_HEIGHT; i++) {
         done[i] = false;
@@ -245,7 +391,7 @@ void clear_lines(Matrix& mat) {
     for (int row = 0; row < (int)BOARD_HEIGHT; row++) {
         if (where_to[row] >= 0) {
             for (int col = 0; col < (int)BOARD_WIDTH; col++) {
-                mat.at(col, where_to[row]) = mat.at(col, row);
+                board.at(col, where_to[row]) = board.at(col, row);
                 done[where_to[row]] = true;
             }
         }
@@ -254,21 +400,37 @@ void clear_lines(Matrix& mat) {
     for (int row = 0; row < (int)BOARD_HEIGHT; row++) {
         if (done[row] == false) {
             for (int col = 0; col < (int)BOARD_WIDTH; col++) {
-                mat.at(col, row) = false;
+                board.at(col, row) = false;
             }
         }
     }
+
+    return result;
 }
 
 double evaluate_move(Matrix mat, BlockPiece piece, const MoveInfo& info) {
     move_block_piece(info, mat, piece);
     mat |= piece.location();
-    clear_lines(mat);
+    bool last_move_was_rotation = false;
+    for (auto it = info.move.rbegin(); it != info.move.rend(); ++it) {
+        if (*it == MovePart::hard_drop) {
+            continue;
+        }
+        if (*it == MovePart::cw || *it == MovePart::ccw || *it == MovePart::one_eighty) {
+            last_move_was_rotation = true;
+            break;
+        } else {
+            last_move_was_rotation = false;
+            break;
+        }
+    }
+
+    ClearInformation clear_info = clear_lines(mat, piece, last_move_was_rotation);
     int height_map[BOARD_WIDTH];
-    int hole_count = find_holes_and_height_map(mat, height_map);
-    double result = evaluate_board(mat, height_map, hole_count);
-    if (hole_count <= 0) {
-        result += clear_value(mat, piece, info);
+    HoleInformation hole_info = find_holes_and_height_map(mat, height_map);
+    double result = evaluate_board(mat, height_map, hole_info);
+    if (hole_info.hole_count <= 0 && hole_info.overhang_count <= MAX_OVERHANGS) {
+        result += clear_value(clear_info);
     }
     return result;
 }
@@ -376,20 +538,9 @@ MoveInfo StackerBot::suggest_move() {
 
     MoveInfo best_move = simple_move(0, Rotate_State::zero);
 
-    Rotate_State states[4] = {Rotate_State::zero, Rotate_State::ninety, Rotate_State::one_eighty, Rotate_State::two_seventy};
-
     double curr_best = -std::numeric_limits<double>::infinity();
 
-    for (auto state : states) {
-        for (int i = -(int)BOARD_WIDTH; i < (int)BOARD_WIDTH; i++) {
-            MoveInfo curr_move = simple_move(i, state);
-            double eval = evaluate_move(game.get_board(), pretend_piece, curr_move);
-            if (eval > curr_best) {
-                best_move = curr_move;
-                curr_best = eval;
-            }
-        }
-    }
+    find_moves(pretend_piece, curr_best, best_move);
 
     if (!game.is_hold_empty()) {
         pretend_piece = BlockPiece(game.get_hold());
@@ -398,17 +549,48 @@ MoveInfo StackerBot::suggest_move() {
         pretend_piece = BlockPiece(game.get_next_queue().front());
     }
 
-    for (auto state : states) {
-        for (int i = -(int)BOARD_WIDTH; i < (int)BOARD_WIDTH; i++) {
-            MoveInfo curr_move = simple_move(i, state);
-            double eval = evaluate_move(game.get_board(), pretend_piece, curr_move);
-            if (eval > curr_best) {
-                curr_move.move.push_front(MovePart::hold);
-                best_move = curr_move;
-                curr_best = eval;
-            }
-        }
+    if (find_moves(pretend_piece, curr_best, best_move)) {
+        best_move.move.push_front(MovePart::hold);
     }
 
     return best_move;
+}
+
+bool Stacker::StackerBot::find_moves(Stacker::BlockPiece& pretend_piece, double& curr_best, Stacker::MoveInfo& best_move) {
+    bool res = false;
+    Rotate_State states[4] = {Rotate_State::zero, Rotate_State::ninety, Rotate_State::one_eighty, Rotate_State::two_seventy};
+    int high_search = BOARD_WIDTH - pretend_piece.get_x();
+    int low_search = -pretend_piece.get_x();
+    for (auto state : states) {
+        for (int i = low_search; i <= high_search; i++) {
+            MoveInfo curr_move = simple_move(i, state);
+            double eval = evaluate_move(game.get_board(), pretend_piece, curr_move);
+            if (eval > curr_best) {
+                best_move = curr_move;
+                curr_best = eval;
+                res = true;
+            }
+        }
+    }
+    if (pretend_piece.get_type() == Piece_Type::T) {
+        for (int i = -(int)BOARD_WIDTH; i < (int)BOARD_WIDTH; i++) {
+            {
+                MoveInfo curr_move = simple_t_spin(i, Rotate_State::ninety);
+                double eval = evaluate_move(game.get_board(), pretend_piece, curr_move);
+                if (eval > curr_best) {
+                    best_move = curr_move;
+                    curr_best = eval;
+                }
+            }
+            {
+                MoveInfo curr_move = simple_t_spin(i, Rotate_State::two_seventy);
+                double eval = evaluate_move(game.get_board(), pretend_piece, curr_move);
+                if (eval > curr_best) {
+                    best_move = curr_move;
+                    curr_best = eval;
+                }
+            }
+        }
+    }
+    return res;
 }

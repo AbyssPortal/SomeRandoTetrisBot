@@ -178,7 +178,11 @@ int main(int argc, char* args[]) {
         Stacker::Matrix ghost = bot.get_game().get_ghost().location();
         Stacker::BlockPiece bot_suggestion = bot.get_game().get_active();
         {
+            Uint32 startTicks = SDL_GetTicks();
             Stacker::MoveInfo best_move = bot.suggest_move();
+            Uint32 endTicks = SDL_GetTicks();
+            Uint32 elapsedTicks = endTicks - startTicks;
+            std::cout << "Ponderation time elapsed: " << elapsedTicks << " ms" << std::endl;
 
             if (best_move.move.front() == Stacker::MovePart::hold) {
                 bot_suggestion = bot.get_game().is_hold_empty() ? Stacker::BlockPiece(bot.get_game().get_next_queue().front()) : Stacker::BlockPiece(bot.get_game().get_hold());
@@ -187,6 +191,7 @@ int main(int argc, char* args[]) {
             if (do_bot_move) {
                 Stacker::do_move(best_move, bot.get_game());
             }
+
             Stacker::move_block_piece(best_move, bot.get_game().get_board(), bot_suggestion);
         }
 

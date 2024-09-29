@@ -75,6 +75,11 @@ class BlockPiece {
 
     Matrix location() const;
 
+    int get_x() {return x;};
+
+    int get_y() {return y;};
+
+
     Piece_Type get_type() const { return type; };
 
     ~BlockPiece() = default;

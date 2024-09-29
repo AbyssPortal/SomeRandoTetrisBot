@@ -44,8 +44,8 @@ class StackerBot {
     StackerBot() : game() {};
     StackerGame& get_game();
     MoveInfo suggest_move();
+    //returns wether it changed the best
+    bool find_moves(Stacker::BlockPiece& pretend_piece, double& curr_best, Stacker::MoveInfo& best_move);
 };
-
-
 
 }  // namespace Stacker
