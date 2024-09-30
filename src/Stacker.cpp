@@ -413,6 +413,8 @@ ClearInformation StackerGame::clear_lines() {
 }
 
 void StackerGame::tick() {
+    lock_last_frame = false;
+
     while (events.size() > 0) {
         handle_event(events.front());
         events.pop_front();
@@ -470,7 +472,8 @@ StackerGame::StackerGame() : board(),
                              left_DAS(std::bind(&StackerGame::start_left_arr, this)),
                              left_ARR(std::bind(&StackerGame::try_left, this)),
                              right_DAS(std::bind(&StackerGame::start_right_arr, this)),
-                             right_ARR(std::bind(&StackerGame::try_right, this))
+                             right_ARR(std::bind(&StackerGame::try_right, this)),
+                             lock_last_frame(false)
 
 {
     auto pieces = randomize_bag();
@@ -502,6 +505,7 @@ void StackerGame::lock() {
     active_piece = BlockPiece(next_queue.front());
     next_queue.pop_front();
     change_lmwr(false);
+    lock_last_frame = true;
 };
 
 void StackerGame::try_left() {
@@ -686,4 +690,8 @@ ClearInformation StackerGame::get_last_clear() const {
 
 bool StackerGame::is_dead() const {
     return !active_piece.can_offset(board, 0, 0);
+}
+
+void StackerGame::empty_last_clear() {
+    last_clear = ClearInformation(0, false);
 }

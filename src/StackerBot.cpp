@@ -136,8 +136,10 @@ HoleInformation find_holes_and_height_map(const Matrix& mat, int height_map[BOAR
         for (int row = height_map[col] - 1; row >= 0; row--) {
             if (!mat.at(col, row)) {
                 if ((col - 1 > 0 && height_map[col - 1] < row) || (col + 1 <= BOARD_WIDTH && height_map[col + 1] < row)) {
-                    result.hole_count--;
-                    result.overhang_count++;
+                    if (height_map[col] - row <= 2) { //buried overhangs become holes
+                        result.hole_count--;
+                        result.overhang_count++;
+                    }
                 }
             }
         }
@@ -145,7 +147,9 @@ HoleInformation find_holes_and_height_map(const Matrix& mat, int height_map[BOAR
     return result;
 }
 
-double evaluate_board(const Matrix& mat, int height_map[BOARD_WIDTH], HoleInformation hole_info) {
+#include <iostream>
+
+double evaluate_board(const Matrix& mat, int height_map[BOARD_WIDTH], HoleInformation hole_info, bool print_info = false) {
     const double hole_cost = -100;
     const double overhang_cost = -30;
     const static int diff_count = 4;
@@ -171,16 +175,22 @@ double evaluate_board(const Matrix& mat, int height_map[BOARD_WIDTH], HoleInform
     double value = 0;
 
     value += hole_cost * hole_info.hole_count;
+    if (print_info) std::cout << "Hole cost: " << hole_cost * hole_info.hole_count << std::endl;
+
     value += overhang_cost * hole_info.overhang_count;
+    if (print_info) std::cout << "Overhang cost: " << overhang_cost * hole_info.overhang_count << std::endl;
 
     for (int col = 0; col < BOARD_WIDTH - 1; col++) {
         int diff = abs(height_map[col] - height_map[col + 1]);
         if (diff > diff_count - 1) {
             value += larger_diff_cost * diff;
+            if (print_info) std::cout << "Larger diff cost: " << larger_diff_cost * diff << " at column " << col << std::endl;
         } else {
             value += diff_cost[diff];
+            if (print_info) std::cout << "Diff cost: " << diff_cost[diff] << " at column " << col << std::endl;
         }
     }
+
     int max_height = 0;
     for (int col = 0; col < BOARD_WIDTH; col++) {
         if (height_map[col] > max_height) {
@@ -189,9 +199,11 @@ double evaluate_board(const Matrix& mat, int height_map[BOARD_WIDTH], HoleInform
     }
 
     value += max_height_cost[max_height] / 10;
+    if (print_info) std::cout << "Max height cost: " << max_height_cost[max_height] / 10 << std::endl;
 
     if (hole_info.hole_count <= 0 && hole_info.overhang_count <= MAX_OVERHANGS) {
         value += max_height_reward[max_height] / 100;
+        if (print_info) std::cout << "Max height reward: " << max_height_reward[max_height] / 100 << std::endl;
 
         Setup setups[BOARD_WIDTH];
         evaluate_t_spin_and_quad(mat, height_map, setups);
@@ -210,23 +222,33 @@ double evaluate_board(const Matrix& mat, int height_map[BOARD_WIDTH], HoleInform
             if (setup.quad) {
                 quad_count++;
                 value += setup.depth * quad_hole_good_or_bad[col] * 2;
+                if (print_info) std::cout << "Quad hole good/bad: " << setup.depth * quad_hole_good_or_bad[col] * 2 << " at column " << col << std::endl;
             }
         }
         if (t_spin_count < setup_count) {
             value += t_spin_setups_reward[t_spin_count];
+            if (print_info) std::cout << "T-spin setups reward: " << t_spin_setups_reward[t_spin_count] << std::endl;
             if (t_spin_count == 0) {
                 if (hole_info.overhang_count > 0) {
                     value += overhang_with_no_t_spin_cost;
+                    if (print_info) std::cout << "Overhang with no T-spin cost: " << overhang_with_no_t_spin_cost << std::endl;
                 }
             }
         }
         if (both_setup) {
             value += both_setup_reward;
+            if (print_info) std::cout << "Both setup reward: " << both_setup_reward << std::endl;
         }
         if (quad_count + t_spin_count > setup_count) {
             value += too_many_setups_cost;
+            if (print_info) std::cout << "Too many setups cost: " << too_many_setups_cost << std::endl;
         }
     }
+
+    if (print_info) {
+        std::cout << "Final board evaluation value: " << value << std::endl;
+    }
+
     return value;
 }
 
@@ -479,6 +501,12 @@ MoveInfo StackerBot::suggest_move() {
     }
 
     return best_move;
+}
+
+void Stacker::print_score(const Matrix& mat) {
+    int height_map[BOARD_WIDTH];
+    HoleInformation holes = find_holes_and_height_map(mat, height_map);
+    evaluate_board(mat, height_map, holes, true);
 }
 
 bool Stacker::StackerBot::find_moves(Stacker::BlockPiece& pretend_piece, double& curr_best, Stacker::MoveInfo& best_move) {

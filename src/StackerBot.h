@@ -34,6 +34,7 @@ void do_move(const MoveInfo&, StackerGame& game);
 
 void move_block_piece(const MoveInfo& info, const Matrix& game, BlockPiece& piece);
 
+void print_score(const Matrix& mat);
 
 class StackerBot {
    private:

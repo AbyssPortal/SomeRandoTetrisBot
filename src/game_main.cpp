@@ -1,8 +1,10 @@
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_mixer.h>
 
 #include <cstdlib>
 #include <ctime>
 #include <iostream>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -16,9 +18,14 @@ const int FRAME_DELAY = 1000 / FPS;
 
 const int BOARD_WIDTH = 10;
 const int BOARD_HEIGHT = 20;
-const int SQUARE_SIZE = 40;
+const int SQUARE_SIZE = SCREEN_WIDTH / 50;
 
 const static int middle_offset_horizontal = SCREEN_WIDTH / 2 - (SQUARE_SIZE * BOARD_WIDTH) / 2;
+
+bool isAppFocused(SDL_Window* window) {
+    Uint32 flags = SDL_GetWindowFlags(window);
+    return (flags & SDL_WINDOW_INPUT_FOCUS) != 0;
+}
 
 void draw_piece(SDL_Renderer* renderer, Stacker::Piece_Type type, int offsetx, int offsety);
 
@@ -74,11 +81,45 @@ void draw_next_queue(SDL_Renderer* renderer, const Stacker::StackerGame& game) {
     }
 }
 
+std::map<std::string, Mix_Chunk*> load_sounds() {
+    std::map<std::string, Mix_Chunk*> sounds;
+    std::vector<std::string> sound_files = {
+        "Assets/double.ogg",
+        "Assets/hard_drop.ogg",
+        "Assets/quad.ogg",
+        "Assets/single.ogg",
+        "Assets/t_spin_double.ogg",
+        "Assets/t_spin_single.ogg",
+        "Assets/t_spin_triple.ogg",
+        "Assets/test.ogg",
+        "Assets/triple.ogg"};
+
+    for (const auto& file : sound_files) {
+        Mix_Chunk* sound = Mix_LoadWAV(file.c_str());
+        if (sound == nullptr) {
+            std::cerr << "Failed to load sound " << file << "! SDL_mixer Error: " << Mix_GetError() << std::endl;
+            continue;
+        }
+        sounds[file] = sound;
+    }
+
+    return sounds;
+}
+
 int main(int argc, char* args[]) {
     if (SDL_Init(SDL_INIT_VIDEO) < 0) {
         std::cerr << "SDL could not initialize! SDL_Error: " << SDL_GetError() << std::endl;
         return 1;
     }
+
+    // Initialize SDL_mixer
+    if (Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048) < 0) {
+        std::cerr << "SDL_mixer could not initialize! SDL_mixer Error: " << Mix_GetError() << std::endl;
+        SDL_Quit();
+        return 1;
+    }
+
+    auto sounds = load_sounds();
 
     SDL_Window* window = SDL_CreateWindow("Basic SDL Program",
                                           SDL_WINDOWPOS_UNDEFINED,
@@ -143,6 +184,7 @@ int main(int argc, char* args[]) {
                         break;
                     case SDLK_SPACE:
                         bot.get_game().send_event(Stacker::Event::hard_drop);
+                        Mix_PlayChannel(-1, sounds["Assets/hard_drop.ogg"], 0);
                         break;
                     case SDLK_z:
                         bot.get_game().send_event(Stacker::Event::tap_ccw);
@@ -169,9 +211,11 @@ int main(int argc, char* args[]) {
                 }
             }
         }
-        bot.get_game().tick();
-        if (bot.get_game().is_dead()) {
-            bot.get_game().reset();
+        if (isAppFocused(window)) {
+            bot.get_game().tick();
+            if (bot.get_game().is_dead()) {
+                bot.get_game().reset();
+            }
         }
         // std::cout << std::endl << std::endl << std::endl << std::endl << "current boardstate:" << std::endl;
         // game.debug_print();
@@ -187,12 +231,15 @@ int main(int argc, char* args[]) {
             Uint32 elapsedTicks = endTicks - startTicks;
             std::cout << "Ponderation time elapsed: " << elapsedTicks << " ms" << std::endl;
 
+            Stacker::print_score(bot.get_game().get_board());
+
             if (best_move.hold) {
                 bot_suggestion = bot.get_game().is_hold_empty() ? Stacker::BlockPiece(bot.get_game().get_next_queue().front()) : Stacker::BlockPiece(bot.get_game().get_hold());
             }
 
             if (do_bot_move) {
                 Stacker::do_move(best_move, bot.get_game());
+                Mix_PlayChannel(-1, sounds["Assets/hard_drop.ogg"], 0);
             }
 
             Stacker::move_block_piece(best_move, bot.get_game().get_board(), bot_suggestion);
@@ -275,6 +322,48 @@ int main(int argc, char* args[]) {
                 }
                 if (count_texture != nullptr) {
                     SDL_RenderCopy(renderer, count_texture, nullptr, &count_rect);
+                }
+            }
+            if (bot.get_game().get_lock_last_frame()) {
+                if (!clear.is_spin) {
+                    switch (clear.clear_count) {
+                        case 0:
+                            break;
+                        case 1:
+                            Mix_PlayChannel(-1, sounds["Assets/single.ogg"], 0);
+                            break;
+                        case 2:
+                            Mix_PlayChannel(-1, sounds["Assets/double.ogg"], 0);
+
+                            break;
+                        case 3:
+                            Mix_PlayChannel(-1, sounds["Assets/triple.ogg"], 0);
+
+                            break;
+                        case 4:
+                            Mix_PlayChannel(-1, sounds["Assets/quad.ogg"], 0);
+                            break;
+                        default:
+                            break;
+                    }
+                } else {
+                    switch (clear.clear_count) {
+                        case 0:
+                            break;
+                        case 1:
+                            Mix_PlayChannel(-1, sounds["Assets/t_spin_single.ogg"], 0);
+                            break;
+                        case 2:
+                            Mix_PlayChannel(-1, sounds["Assets/t_spin_double.ogg"], 0);
+
+                            break;
+                        case 3:
+                            Mix_PlayChannel(-1, sounds["Assets/t_spin_triple.ogg"], 0);
+
+                            break;
+                        default:
+                            break;
+                    }
                 }
             }
         }

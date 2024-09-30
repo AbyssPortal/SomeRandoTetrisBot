@@ -164,6 +164,8 @@ class StackerGame {
 
     Timer right_ARR;
 
+    bool lock_last_frame;
+
    public:
     const static constexpr int NEXT_QUEUE_MIN_SIZE = 5;
     StackerGame();
@@ -188,9 +190,13 @@ class StackerGame {
 
     ClearInformation get_last_clear() const;
 
+    void empty_last_clear();
+
     void reset();
 
     bool is_dead() const;
+
+    bool get_lock_last_frame() const { return lock_last_frame;};
 };
 
 }  // namespace Stacker
