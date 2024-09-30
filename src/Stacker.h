@@ -147,6 +147,7 @@ class StackerGame {
     void try_hold();
 
     void start_left_arr();
+
     void start_right_arr();
 
     void regenerate_next();
@@ -188,6 +189,8 @@ class StackerGame {
     ClearInformation get_last_clear() const;
 
     void reset();
+
+    bool is_dead() const;
 };
 
 }  // namespace Stacker

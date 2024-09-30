@@ -170,6 +170,9 @@ int main(int argc, char* args[]) {
             }
         }
         bot.get_game().tick();
+        if (bot.get_game().is_dead()) {
+            bot.get_game().reset();
+        }
         // std::cout << std::endl << std::endl << std::endl << std::endl << "current boardstate:" << std::endl;
         // game.debug_print();
 

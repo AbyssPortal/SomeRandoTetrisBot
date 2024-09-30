@@ -683,3 +683,7 @@ void StackerGame::reset() {
 ClearInformation StackerGame::get_last_clear() const {
     return last_clear;
 }
+
+bool StackerGame::is_dead() const {
+    return !active_piece.can_offset(board, 0, 0);
+}
