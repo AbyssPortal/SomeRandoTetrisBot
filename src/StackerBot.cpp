@@ -5,87 +5,18 @@ using namespace Stacker;
 // rotates, moves horizontal r/l, and then hard drops
 MoveInfo simple_move(int horizontal, Rotate_State state) {
     MoveInfo result;
-    result.move.clear();
-    switch (state) {
-        case Rotate_State::zero:
-            break;
-        case Rotate_State::two_seventy:
-            result.move.push_back(MovePart::ccw);
-            break;
-        case Rotate_State::one_eighty:
-            result.move.push_back(MovePart::one_eighty);
-            break;
-        case Rotate_State::ninety:
-            result.move.push_back(MovePart::cw);
-            break;
-
-        default:
-            break;
-    }
-    if (horizontal >= 0) {
-        for (int j = 0; j < horizontal; j++) {
-            result.move.push_back(MovePart::right);
-        }
-    } else {
-        for (int j = 0; j < -horizontal; j++) {
-            result.move.push_back(MovePart::left);
-        }
-    }
-    result.move.push_back(MovePart::hard_drop);
+    result.first_rotate = state;
+    result.horizontal_move = horizontal;
+    result.second_rotate = Rotate_State::zero;
     return result;
 }
 
 // rotates, moves horizontal r/l, soft drops, rotates again, and then hard drops
 MoveInfo simple_t_spin(int horizontal, Rotate_State state) {
     MoveInfo result;
-    result.move.clear();
-    switch (state) {
-        case Rotate_State::zero:
-            PANIC("t spins must be cw or ccw");
-            break;
-        case Rotate_State::two_seventy:
-            result.move.push_back(MovePart::ccw);
-            break;
-        case Rotate_State::one_eighty:
-            PANIC("t spins must be cw or ccw");
-            break;
-        case Rotate_State::ninety:
-            result.move.push_back(MovePart::cw);
-            break;
-
-        default:
-            break;
-    }
-    if (horizontal >= 0) {
-        for (int j = 0; j < horizontal; j++) {
-            result.move.push_back(MovePart::right);
-        }
-    } else {
-        for (int j = 0; j < -horizontal; j++) {
-            result.move.push_back(MovePart::left);
-        }
-    }
-    for (int i = 0; i < 20; i++) {  // bad code
-        result.move.push_back(MovePart::down);
-    }
-    switch (state) {
-        case Rotate_State::zero:
-            PANIC("t spins must be cw or ccw");
-            break;
-        case Rotate_State::two_seventy:
-            result.move.push_back(MovePart::ccw);
-            break;
-        case Rotate_State::one_eighty:
-            PANIC("t spins must be cw or ccw");
-            break;
-        case Rotate_State::ninety:
-            result.move.push_back(MovePart::cw);
-            break;
-
-        default:
-            break;
-    }
-    result.move.push_back(MovePart::hard_drop);
+    result.first_rotate = state;
+    result.horizontal_move = horizontal;
+    result.second_rotate = state;
 
     return result;
 }
@@ -233,7 +164,7 @@ double evaluate_board(const Matrix& mat, int height_map[BOARD_WIDTH], HoleInform
          0, -100, -150, -300, -450,               /*15*/
          -600, -750, -5000, -10000, -100000 /*20*/};
     const double quad_hole_good_or_bad[BOARD_WIDTH] = {2, -0.5, 0.5, 1.5, 1.25, 1.25, 1.5, 0.5, -0.5, 2};
-    const double overhang_with_no_t_spin_cost = -20;
+    const double overhang_with_no_t_spin_cost = -50;
 
     double value = 0;
 
@@ -258,7 +189,7 @@ double evaluate_board(const Matrix& mat, int height_map[BOARD_WIDTH], HoleInform
     value += max_height_cost[max_height] / 10;
 
     if (hole_info.hole_count <= 0 && hole_info.overhang_count <= MAX_OVERHANGS) {
-        value += max_height_reward[max_height] / 10;
+        value += max_height_reward[max_height] / 100;
 
         Setup setups[BOARD_WIDTH];
         evaluate_t_spin_and_quad(mat, height_map, setups);
@@ -411,19 +342,7 @@ ClearInformation clear_lines(Matrix& board, BlockPiece active_piece, bool last_m
 double evaluate_move(Matrix mat, BlockPiece piece, const MoveInfo& info) {
     move_block_piece(info, mat, piece);
     mat |= piece.location();
-    bool last_move_was_rotation = false;
-    for (auto it = info.move.rbegin(); it != info.move.rend(); ++it) {
-        if (*it == MovePart::hard_drop) {
-            continue;
-        }
-        if (*it == MovePart::cw || *it == MovePart::ccw || *it == MovePart::one_eighty) {
-            last_move_was_rotation = true;
-            break;
-        } else {
-            last_move_was_rotation = false;
-            break;
-        }
-    }
+    bool last_move_was_rotation = (info.second_rotate != Rotate_State::zero);
 
     ClearInformation clear_info = clear_lines(mat, piece, last_move_was_rotation);
     int height_map[BOARD_WIDTH];
@@ -439,97 +358,101 @@ StackerGame& StackerBot::get_game() {
     return game;
 }
 
-void Stacker::move_block_piece(const MoveInfo& info, const Matrix& mat, BlockPiece& piece) {
-    for (auto move_part : info.move) {
-        switch (move_part) {
-            case Stacker::MovePart::left: {
-                piece.try_offset(mat, -1, 0);
-                break;
-            }
-            case Stacker::MovePart::right: {
-                piece.try_offset(mat, 1, 0);
-                break;
-            }
-            case Stacker::MovePart::down: {
-                piece.try_offset(mat, 0, -1);
-                break;
-            }
-            case Stacker::MovePart::hard_drop: {
-                while (piece.try_offset(mat, 0, -1));
-                break;
-            }
-            case Stacker::MovePart::cw: {
-                piece.try_90(mat);
-                break;
-            }
-            case Stacker::MovePart::ccw: {
-                piece.try_270(mat);
-                break;
-            }
-            case Stacker::MovePart::one_eighty: {
-                piece.try_180(mat);
-                break;
-            }
-            case Stacker::MovePart::hold: {
-                // std::cerr << "dumb shit" << std::endl;
-                break;
-            }
-            default: {
-                PANICF("unkown movepart: %d", (int)(move_part));
-            }
+void do_rotation(const Matrix& mat, BlockPiece& piece, Rotate_State rot) {
+    switch (rot) {
+        case Rotate_State::zero: {
+            break;
+        }
+        case Rotate_State::ninety: {
+            piece.try_90(mat);
+            break;
+        }
+        case Rotate_State::one_eighty: {
+            piece.try_180(mat);
+            break;
+        }
+        case Rotate_State::two_seventy: {
+            piece.try_270(mat);
+            break;
+        }
+        default: {
+            PANICF("Unknown rotation state: %d", static_cast<int>(rot));
         }
     }
 }
 
-void Stacker::do_move(const MoveInfo& info, StackerGame& game) {
-    for (auto move_part : info.move) {
-        switch (move_part) {
-            case Stacker::MovePart::left: {
-                game.send_event(Stacker::Event::press_left);
-                game.send_event(Stacker::Event::release_left);
-
-                break;
-            }
-            case Stacker::MovePart::right: {
-                game.send_event(Stacker::Event::press_right);
-                game.send_event(Stacker::Event::release_right);
-
-                break;
-            }
-            case Stacker::MovePart::down: {
-                game.send_event(Stacker::Event::press_down);
-                game.send_event(Stacker::Event::release_down);
-
-                break;
-            }
-            case Stacker::MovePart::hard_drop: {
-                game.send_event(Stacker::Event::hard_drop);
-
-                break;
-            }
-            case Stacker::MovePart::cw: {
-                game.send_event(Stacker::Event::tap_cw);
-
-                break;
-            }
-            case Stacker::MovePart::ccw: {
-                game.send_event(Stacker::Event::tap_ccw);
-
-                break;
-            }
-            case Stacker::MovePart::one_eighty: {
-                game.send_event(Stacker::Event::tap_180);
-
-                break;
-            }
-            case Stacker::MovePart::hold: {
-                game.send_event(Stacker::Event::hold);
-                break;
-            }
-            default: {
-                PANICF("unkown movepart: %d", (int)(move_part));
-            }
+void Stacker::move_block_piece(const MoveInfo& info, const Matrix& mat, BlockPiece& piece) {
+    do_rotation(mat, piece, info.first_rotate);
+    if (info.horizontal_move < 0) {
+        for (int i = 0; i < -info.horizontal_move; i++) {
+            piece.try_offset(mat, -1, 0);
         }
+    } else {
+        for (int i = 0; i < info.horizontal_move; i++) {
+            piece.try_offset(mat, 1, 0);
+        }
+    }
+
+    while (piece.try_offset(mat, 0, -1));
+
+    do_rotation(mat, piece, info.second_rotate);
+}
+
+void Stacker::do_move(const MoveInfo& info, StackerGame& game) {
+    if (info.hold) {
+        game.send_event(Event::hold);
+    }
+    switch (info.first_rotate) {
+        case Rotate_State::zero:
+            break;
+        case Rotate_State::ninety:
+            game.send_event(Event::tap_cw);
+            break;
+        case Rotate_State::one_eighty:
+            game.send_event(Event::tap_180);
+            break;
+        case Rotate_State::two_seventy:
+            game.send_event(Event::tap_ccw);
+
+            break;
+        default:
+            PANICF("Unknown rotation state: %d", static_cast<int>(info.first_rotate));
+    }
+
+    if (info.horizontal_move < 0) {
+        for (int i = 0; i < -info.horizontal_move; i++) {
+            game.send_event(Event::press_left);
+            game.send_event(Event::release_left);
+        }
+    } else {
+        for (int i = 0; i < info.horizontal_move; i++) {
+            game.send_event(Event::press_right);
+            game.send_event(Event::release_right);
+        }
+    }
+
+    if (info.second_rotate != Rotate_State::zero) {
+        for (int i = 0; i < BOARD_HEIGHT; i++) {
+            game.send_event(Event::press_down);
+            game.send_event(Event::release_down);
+        }
+        switch (info.second_rotate) {
+            case Rotate_State::ninety:
+                game.send_event(Event::tap_cw);
+                break;
+            case Rotate_State::one_eighty:
+                game.send_event(Event::tap_180);
+                break;
+            case Rotate_State::two_seventy:
+                game.send_event(Event::tap_ccw);
+                break;
+            default:
+                PANICF("Unknown rotation state: %d", static_cast<int>(info.second_rotate));
+        }
+        game.send_event(Event::hard_drop);
+
+    } else {
+        game.send_event(Event::hard_drop);
     }
 }
 
@@ -550,7 +473,7 @@ MoveInfo StackerBot::suggest_move() {
     }
 
     if (find_moves(pretend_piece, curr_best, best_move)) {
-        best_move.move.push_front(MovePart::hold);
+        best_move.hold = true;
     }
 
     return best_move;

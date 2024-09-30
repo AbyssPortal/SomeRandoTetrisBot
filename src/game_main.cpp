@@ -184,7 +184,7 @@ int main(int argc, char* args[]) {
             Uint32 elapsedTicks = endTicks - startTicks;
             std::cout << "Ponderation time elapsed: " << elapsedTicks << " ms" << std::endl;
 
-            if (best_move.move.front() == Stacker::MovePart::hold) {
+            if (best_move.hold) {
                 bot_suggestion = bot.get_game().is_hold_empty() ? Stacker::BlockPiece(bot.get_game().get_next_queue().front()) : Stacker::BlockPiece(bot.get_game().get_hold());
             }
 
@@ -213,6 +213,9 @@ int main(int argc, char* args[]) {
                     SDL_SetRenderDrawColor(renderer, 0xFF, 0xFF, 0xFF, 0xFF);  // White
                 } else if (bot_ghost.at(j, BOARD_HEIGHT - i - 1)) {
                     SDL_SetRenderDrawColor(renderer, 0x87, 0xB5, 0x38, col.a);  // olive oil
+                    if (ghost.at(j, BOARD_HEIGHT - i - 1)) {
+                        SDL_SetRenderDrawColor(renderer, col.r / 1.2, col.g / 1.2, col.b / 1.2, col.a);  // piece's color
+                    }
                 } else if (ghost.at(j, BOARD_HEIGHT - i - 1)) {
                     SDL_SetRenderDrawColor(renderer, col.r / 2, col.g / 2, col.b / 2, col.a);  // piece's color
                 } else {

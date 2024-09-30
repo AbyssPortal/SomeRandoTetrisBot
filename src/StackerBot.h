@@ -21,15 +21,13 @@ enum class MovePart {
 
 
 struct MoveInfo{
-    std::deque<MovePart> move;
+    bool hold;
+    Rotate_State first_rotate;
+    int horizontal_move;
+    Rotate_State second_rotate;
     MoveInfo() {};
-    MoveInfo(const MoveInfo& other) : move(other.move) {}
-    MoveInfo& operator=(const MoveInfo& other) {
-        if (this != &other) {
-            move = other.move;
-        }
-        return *this;
-    }
+    MoveInfo(const MoveInfo& other) = default;
+    MoveInfo& operator=(const MoveInfo& other) = default;
 };
 
 void do_move(const MoveInfo&, StackerGame& game);
