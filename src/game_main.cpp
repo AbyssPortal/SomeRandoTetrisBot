@@ -28,7 +28,9 @@ Stacker::BotParameters load_params_from_file(const std::string& filename) {
     if (inFile.is_open()) {
         std::stringstream buffer;
         buffer << inFile.rdbuf();
-        return Stacker::BotParameters::deserialize(buffer.str());
+        Stacker::BotParameters res;
+        res.deserialize(buffer.str());
+        return res;
     } else {
         std::cerr << "Unable to open file for reading: " << filename << std::endl;
         return Stacker::BotParameters();
