@@ -171,7 +171,7 @@ int main(int argc, char** argv) {
 std::vector<BotParameters> initializePopulation(int populationSize, BotParameters base) {
     std::vector<BotParameters> population(populationSize, base);
     for (int i = 0; i < populationSize; i++) {
-        mutate(population[i], 0);
+        mutate(population[i], 0.3);
     }
     // Initialize each BotParameters object as needed
     return population;
