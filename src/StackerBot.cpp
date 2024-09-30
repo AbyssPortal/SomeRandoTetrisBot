@@ -135,8 +135,8 @@ HoleInformation find_holes_and_height_map(const Matrix& mat, int height_map[BOAR
     for (int col = 0; col < BOARD_WIDTH; col++) {
         for (int row = height_map[col] - 1; row >= 0; row--) {
             if (!mat.at(col, row)) {
-                if ((col - 1 > 0 && height_map[col - 1] < row) || (col + 1 <= BOARD_WIDTH && height_map[col + 1] < row)) {
-                    if (height_map[col] - row <= 2) { //buried overhangs become holes
+                if ((col - 1 >= 0 && height_map[col - 1] < row) || (col + 1 < BOARD_WIDTH && height_map[col + 1] < row)) {
+                    if (height_map[col] - row <= 3) {  // buried overhangs become holes
                         result.hole_count--;
                         result.overhang_count++;
                     }
@@ -149,45 +149,26 @@ HoleInformation find_holes_and_height_map(const Matrix& mat, int height_map[BOAR
 
 #include <iostream>
 
-double evaluate_board(const Matrix& mat, int height_map[BOARD_WIDTH], HoleInformation hole_info, bool print_info = false) {
-    const double hole_cost = -100;
-    const double overhang_cost = -30;
-    const static int diff_count = 4;
-    const double diff_cost[diff_count] = {-0.2, -0.6, -2.4, -9.6};
-    const double larger_diff_cost = -3;
-    const int setup_count = 3;
-    const double t_spin_setups_reward[setup_count] = {0, 40, -1};
-    const double both_setup_reward = 25;
-    const double too_many_setups_cost = -50;
-    const double max_height_reward[BOARD_HEIGHT] =
-        {0, 1, 2, 3, 15,     /* 5*/
-         15, 15, 15, 15, 15, /* 10*/
-         0, -0, -0, -0, -0,  /*15*/
-         -0, -0, -0, -0, -0 /*20*/};
-    const double max_height_cost[BOARD_HEIGHT] =  // reward is applied only when not dire, cost is laways applied
-        {0, 0, 0, 0, 0,                           /* 5*/
-         0, 0, 0, 0, 0,                           /* 10*/
-         0, -100, -150, -300, -450,               /*15*/
-         -600, -750, -5000, -10000, -100000 /*20*/};
-    const double quad_hole_good_or_bad[BOARD_WIDTH] = {2, -0.5, 0.5, 1.5, 1.25, 1.25, 1.5, 0.5, -0.5, 2};
-    const double overhang_with_no_t_spin_cost = -50;
+const static double QUAD_MULT = 4;
+
+double evaluate_board(const Matrix& mat, int height_map[BOARD_WIDTH], HoleInformation hole_info, const BotParameters& params, bool print_info = false)  {
 
     double value = 0;
 
-    value += hole_cost * hole_info.hole_count;
-    if (print_info) std::cout << "Hole cost: " << hole_cost * hole_info.hole_count << std::endl;
+    value += params.hole_cost * hole_info.hole_count;
+    if (print_info) std::cout << "Hole cost: " << params.hole_cost * hole_info.hole_count << std::endl;
 
-    value += overhang_cost * hole_info.overhang_count;
-    if (print_info) std::cout << "Overhang cost: " << overhang_cost * hole_info.overhang_count << std::endl;
+    value += params.overhang_cost * hole_info.overhang_count;
+    if (print_info) std::cout << "Overhang cost: " << params.overhang_cost * hole_info.overhang_count << std::endl;
 
     for (int col = 0; col < BOARD_WIDTH - 1; col++) {
         int diff = abs(height_map[col] - height_map[col + 1]);
-        if (diff > diff_count - 1) {
-            value += larger_diff_cost * diff;
-            if (print_info) std::cout << "Larger diff cost: " << larger_diff_cost * diff << " at column " << col << std::endl;
+        if (diff > params.diff_count - 1) {
+            value += params.larger_diff_cost * diff;
+            if (print_info) std::cout << "Larger diff cost: " << params.larger_diff_cost * diff << " at column " << col << std::endl;
         } else {
-            value += diff_cost[diff];
-            if (print_info) std::cout << "Diff cost: " << diff_cost[diff] << " at column " << col << std::endl;
+            value += params.diff_cost[diff];
+            if (print_info) std::cout << "Diff cost: " << params.diff_cost[diff] << " at column " << col << std::endl;
         }
     }
 
@@ -198,12 +179,12 @@ double evaluate_board(const Matrix& mat, int height_map[BOARD_WIDTH], HoleInform
         }
     }
 
-    value += max_height_cost[max_height] / 10;
-    if (print_info) std::cout << "Max height cost: " << max_height_cost[max_height] / 10 << std::endl;
+    value += params.max_height_cost[max_height];
+    if (print_info) std::cout << "Max height cost: " << params.max_height_cost[max_height] / 10 << std::endl;
 
     if (hole_info.hole_count <= 0 && hole_info.overhang_count <= MAX_OVERHANGS) {
-        value += max_height_reward[max_height] / 100;
-        if (print_info) std::cout << "Max height reward: " << max_height_reward[max_height] / 100 << std::endl;
+        value += params.max_height_reward[max_height];
+        if (print_info) std::cout << "Max height reward: " << params.max_height_reward[max_height] / 100 << std::endl;
 
         Setup setups[BOARD_WIDTH];
         evaluate_t_spin_and_quad(mat, height_map, setups);
@@ -221,27 +202,27 @@ double evaluate_board(const Matrix& mat, int height_map[BOARD_WIDTH], HoleInform
             }
             if (setup.quad) {
                 quad_count++;
-                value += setup.depth * quad_hole_good_or_bad[col] * 2;
-                if (print_info) std::cout << "Quad hole good/bad: " << setup.depth * quad_hole_good_or_bad[col] * 2 << " at column " << col << std::endl;
+                value += setup.depth * params.quad_hole_good_or_bad[col] * QUAD_MULT;
+                if (print_info) std::cout << "Quad hole good/bad: " << setup.depth * params.quad_hole_good_or_bad[col] * QUAD_MULT << " at column " << col << std::endl;
             }
         }
-        if (t_spin_count < setup_count) {
-            value += t_spin_setups_reward[t_spin_count];
-            if (print_info) std::cout << "T-spin setups reward: " << t_spin_setups_reward[t_spin_count] << std::endl;
+        if (t_spin_count < params.setup_count) {
+            value += params.t_spin_setups_reward[t_spin_count];
+            if (print_info) std::cout << "T-spin setups reward: " << params.t_spin_setups_reward[t_spin_count] << std::endl;
             if (t_spin_count == 0) {
                 if (hole_info.overhang_count > 0) {
-                    value += overhang_with_no_t_spin_cost;
-                    if (print_info) std::cout << "Overhang with no T-spin cost: " << overhang_with_no_t_spin_cost << std::endl;
+                    value += params.overhang_with_no_t_spin_cost;
+                    if (print_info) std::cout << "Overhang with no T-spin cost: " << params.overhang_with_no_t_spin_cost << std::endl;
                 }
             }
         }
         if (both_setup) {
-            value += both_setup_reward;
-            if (print_info) std::cout << "Both setup reward: " << both_setup_reward << std::endl;
+            value += params.both_setup_reward;
+            if (print_info) std::cout << "Both setup reward: " << params.both_setup_reward << std::endl;
         }
-        if (quad_count + t_spin_count > setup_count) {
-            value += too_many_setups_cost;
-            if (print_info) std::cout << "Too many setups cost: " << too_many_setups_cost << std::endl;
+        if (quad_count + t_spin_count > params.setup_count) {
+            value += params.too_many_setups_cost;
+            if (print_info) std::cout << "Too many setups cost: " << params.too_many_setups_cost << std::endl;
         }
     }
 
@@ -274,7 +255,7 @@ double clear_value(const ClearInformation& info) {
                 break;
             }
             case 4: {
-                value += 48;
+                value += 24 * QUAD_MULT;
                 break;
             }
             default: {
@@ -363,7 +344,7 @@ ClearInformation clear_lines(Matrix& board, BlockPiece active_piece, bool last_m
     return result;
 }
 
-double evaluate_move(Matrix mat, BlockPiece piece, const MoveInfo& info) {
+double evaluate_move(Matrix mat, BlockPiece piece, const MoveInfo& info, const BotParameters& params) {
     move_block_piece(info, mat, piece);
     mat |= piece.location();
     bool last_move_was_rotation = (info.second_rotate != Rotate_State::zero);
@@ -371,7 +352,7 @@ double evaluate_move(Matrix mat, BlockPiece piece, const MoveInfo& info) {
     ClearInformation clear_info = clear_lines(mat, piece, last_move_was_rotation);
     int height_map[BOARD_WIDTH];
     HoleInformation hole_info = find_holes_and_height_map(mat, height_map);
-    double result = evaluate_board(mat, height_map, hole_info);
+    double result = evaluate_board(mat, height_map, hole_info, params);
     if (hole_info.hole_count <= 0 && hole_info.overhang_count <= MAX_OVERHANGS) {
         result += clear_value(clear_info);
     }
@@ -503,10 +484,10 @@ MoveInfo StackerBot::suggest_move() {
     return best_move;
 }
 
-void Stacker::print_score(const Matrix& mat) {
+void Stacker::print_score(const Matrix& mat, const BotParameters& params) {
     int height_map[BOARD_WIDTH];
     HoleInformation holes = find_holes_and_height_map(mat, height_map);
-    evaluate_board(mat, height_map, holes, true);
+    evaluate_board(mat, height_map, holes, params, true);
 }
 
 bool Stacker::StackerBot::find_moves(Stacker::BlockPiece& pretend_piece, double& curr_best, Stacker::MoveInfo& best_move) {
@@ -517,7 +498,7 @@ bool Stacker::StackerBot::find_moves(Stacker::BlockPiece& pretend_piece, double&
     for (auto state : states) {
         for (int i = low_search; i <= high_search; i++) {
             MoveInfo curr_move = simple_move(i, state);
-            double eval = evaluate_move(game.get_board(), pretend_piece, curr_move);
+            double eval = evaluate_move(game.get_board(), pretend_piece, curr_move, params);
             if (eval > curr_best) {
                 best_move = curr_move;
                 curr_best = eval;
@@ -529,7 +510,7 @@ bool Stacker::StackerBot::find_moves(Stacker::BlockPiece& pretend_piece, double&
         for (int i = low_search; i <= high_search; i++) {
             {
                 MoveInfo curr_move = simple_t_spin(i, Rotate_State::ninety);
-                double eval = evaluate_move(game.get_board(), pretend_piece, curr_move);
+                double eval = evaluate_move(game.get_board(), pretend_piece, curr_move, params);
                 if (eval > curr_best) {
                     best_move = curr_move;
                     curr_best = eval;
@@ -538,7 +519,7 @@ bool Stacker::StackerBot::find_moves(Stacker::BlockPiece& pretend_piece, double&
             }
             {
                 MoveInfo curr_move = simple_t_spin(i, Rotate_State::two_seventy);
-                double eval = evaluate_move(game.get_board(), pretend_piece, curr_move);
+                double eval = evaluate_move(game.get_board(), pretend_piece, curr_move, params);
                 if (eval > curr_best) {
                     best_move = curr_move;
                     curr_best = eval;
@@ -548,4 +529,83 @@ bool Stacker::StackerBot::find_moves(Stacker::BlockPiece& pretend_piece, double&
         }
     }
     return res;
+}
+
+
+#include "StackerBot.h"
+#include <vector>
+
+// Function to transform BotParameters into an array of doubles
+std::vector<double> botParametersToArray(const BotParameters& params) {
+    std::vector<double> array;
+
+    array.push_back(params.hole_cost);
+    array.push_back(params.overhang_cost);
+
+    for (int i = 0; i < BotParameters::diff_count; ++i) {
+        array.push_back(params.diff_cost[i]);
+    }
+
+    array.push_back(params.larger_diff_cost);
+
+    for (int i = 0; i < BotParameters::setup_count; ++i) {
+        array.push_back(params.t_spin_setups_reward[i]);
+    }
+
+    array.push_back(params.both_setup_reward);
+    array.push_back(params.too_many_setups_cost);
+
+    for (int i = 0; i < BOARD_HEIGHT; ++i) {
+        array.push_back(params.max_height_reward[i]);
+    }
+
+    for (int i = 0; i < BOARD_HEIGHT; ++i) {
+        array.push_back(params.max_height_cost[i]);
+    }
+
+    for (int i = 0; i < BOARD_WIDTH; ++i) {
+        array.push_back(params.quad_hole_good_or_bad[i]);
+    }
+
+    array.push_back(params.overhang_with_no_t_spin_cost);
+
+    return array;
+}
+
+// Function to transform an array of doubles back into BotParameters
+BotParameters arrayToBotParameters(const std::vector<double>& array) {
+    BotParameters params;
+    int index = 0;
+
+    params.hole_cost = array[index++];
+    params.overhang_cost = array[index++];
+
+    for (int i = 0; i < BotParameters::diff_count; ++i) {
+        params.diff_cost[i] = array[index++];
+    }
+
+    params.larger_diff_cost = array[index++];
+
+    for (int i = 0; i < BotParameters::setup_count; ++i) {
+        params.t_spin_setups_reward[i] = array[index++];
+    }
+
+    params.both_setup_reward = array[index++];
+    params.too_many_setups_cost = array[index++];
+
+    for (int i = 0; i < BOARD_HEIGHT; ++i) {
+        params.max_height_reward[i] = array[index++];
+    }
+
+    for (int i = 0; i < BOARD_HEIGHT; ++i) {
+        params.max_height_cost[i] = array[index++];
+    }
+
+    for (int i = 0; i < BOARD_WIDTH; ++i) {
+        params.quad_hole_good_or_bad[i] = array[index++];
+    }
+
+    params.overhang_with_no_t_spin_cost = array[index++];
+
+    return params;
 }

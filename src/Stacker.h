@@ -166,9 +166,11 @@ class StackerGame {
 
     bool lock_last_frame;
 
+    std::mt19937 rng;
+
    public:
     const static constexpr int NEXT_QUEUE_MIN_SIZE = 5;
-    StackerGame();
+    StackerGame(int seed);
 
     void send_event(Event event);
 

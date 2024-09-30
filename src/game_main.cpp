@@ -3,6 +3,7 @@
 
 #include <cstdlib>
 #include <ctime>
+#include <fstream>
 #include <iostream>
 #include <map>
 #include <string>
@@ -21,6 +22,18 @@ const int BOARD_HEIGHT = 20;
 const int SQUARE_SIZE = SCREEN_WIDTH / 50;
 
 const static int middle_offset_horizontal = SCREEN_WIDTH / 2 - (SQUARE_SIZE * BOARD_WIDTH) / 2;
+
+Stacker::BotParameters load_params_from_file(const std::string& filename) {
+    std::ifstream inFile(filename);
+    if (inFile.is_open()) {
+        std::stringstream buffer;
+        buffer << inFile.rdbuf();
+        return Stacker::BotParameters::deserialize(buffer.str());
+    } else {
+        std::cerr << "Unable to open file for reading: " << filename << std::endl;
+        return Stacker::BotParameters();
+    }
+}
 
 bool isAppFocused(SDL_Window* window) {
     Uint32 flags = SDL_GetWindowFlags(window);
@@ -107,6 +120,7 @@ std::map<std::string, Mix_Chunk*> load_sounds() {
 }
 
 int main(int argc, char* args[]) {
+    int seed = (argc > 1) ? std::atoi(args[1]) : static_cast<int>(std::time(nullptr));
     if (SDL_Init(SDL_INIT_VIDEO) < 0) {
         std::cerr << "SDL could not initialize! SDL_Error: " << SDL_GetError() << std::endl;
         return 1;
@@ -149,9 +163,8 @@ int main(int argc, char* args[]) {
 
     bool quit = false;
     SDL_Event e;
-
-    Stacker::StackerBot bot;
-    std::srand(static_cast<unsigned int>(std::time(nullptr)));
+    auto god = load_params_from_file("god.txt");
+    Stacker::StackerBot bot = Stacker::StackerBot(god, seed);
 
     while (!quit) {
         Uint32 frameStart = SDL_GetTicks();
@@ -231,7 +244,7 @@ int main(int argc, char* args[]) {
             Uint32 elapsedTicks = endTicks - startTicks;
             std::cout << "Ponderation time elapsed: " << elapsedTicks << " ms" << std::endl;
 
-            Stacker::print_score(bot.get_game().get_board());
+            Stacker::print_score(bot.get_game().get_board(), bot.get_params());
 
             if (best_move.hold) {
                 bot_suggestion = bot.get_game().is_hold_empty() ? Stacker::BlockPiece(bot.get_game().get_next_queue().front()) : Stacker::BlockPiece(bot.get_game().get_hold());

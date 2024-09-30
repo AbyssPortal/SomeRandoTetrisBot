@@ -441,12 +441,14 @@ void StackerGame::check_lock() {
     }
 }
 
-std::array<Piece_Type, 7> randomize_bag() {
+
+template<typename rng>
+std::array<Piece_Type, 7> randomize_bag(rng& device) {
     std::array<Piece_Type, 7> pieces = {
         Piece_Type::I, Piece_Type::J, Piece_Type::L,
         Piece_Type::O, Piece_Type::S, Piece_Type::T, Piece_Type::Z};
 
-    std::shuffle(pieces.begin(), pieces.end(), std::random_device());
+    std::shuffle(pieces.begin(), pieces.end(), device);
 
     return pieces;
 }
@@ -459,7 +461,7 @@ void StackerGame::start_right_arr() {
     right_ARR.set(ARR_INTERVAL, true);
 }
 
-StackerGame::StackerGame() : board(),
+StackerGame::StackerGame(int seed) : board(),
                              active_piece(Piece_Type::T),
                              events(),
                              next_queue(),
@@ -473,10 +475,11 @@ StackerGame::StackerGame() : board(),
                              left_ARR(std::bind(&StackerGame::try_left, this)),
                              right_DAS(std::bind(&StackerGame::start_right_arr, this)),
                              right_ARR(std::bind(&StackerGame::try_right, this)),
-                             lock_last_frame(false)
+                             lock_last_frame(false),
+                             rng(seed)
 
 {
-    auto pieces = randomize_bag();
+    auto pieces = randomize_bag(rng);
     active_piece = BlockPiece(pieces[0]);
     for (int i = 1; i < 7; i++) {
         next_queue.push_back(pieces[i]);
@@ -486,7 +489,7 @@ StackerGame::StackerGame() : board(),
 
 void StackerGame::regenerate_next() {
     if (next_queue.size() <= NEXT_QUEUE_MIN_SIZE) {
-        auto pieces = randomize_bag();
+        auto pieces = randomize_bag(rng);
         for (int i = 0; i < 7; i++) {
             next_queue.push_back(pieces[i]);
         }
@@ -497,7 +500,7 @@ void StackerGame::lock() {
     board |= active_piece.location();
     last_clear = clear_lines();
     if (next_queue.size() <= NEXT_QUEUE_MIN_SIZE) {
-        auto pieces = randomize_bag();
+        auto pieces = randomize_bag(rng);
         for (int i = 0; i < 7; i++) {
             next_queue.push_back(pieces[i]);
         }
