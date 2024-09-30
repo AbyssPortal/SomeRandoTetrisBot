@@ -5,6 +5,7 @@ using namespace Stacker;
 // rotates, moves horizontal r/l, and then hard drops
 MoveInfo simple_move(int horizontal, Rotate_State state) {
     MoveInfo result;
+    result.hold = false;
     result.first_rotate = state;
     result.horizontal_move = horizontal;
     result.second_rotate = Rotate_State::zero;
@@ -14,6 +15,7 @@ MoveInfo simple_move(int horizontal, Rotate_State state) {
 // rotates, moves horizontal r/l, soft drops, rotates again, and then hard drops
 MoveInfo simple_t_spin(int horizontal, Rotate_State state) {
     MoveInfo result;
+    result.hold = false;
     result.first_rotate = state;
     result.horizontal_move = horizontal;
     result.second_rotate = state;
