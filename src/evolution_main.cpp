@@ -31,7 +31,7 @@ double fitnessFunction(const BotParameters& params, int seed) {
                         fitness += 75;
                         break;
                     case 2:
-                        fitness += 176;
+                        fitness += 175;
                         break;
                     case 3:
                         fitness += 500;
@@ -45,16 +45,16 @@ double fitnessFunction(const BotParameters& params, int seed) {
             } else {
                 switch (clear_info.clear_count) {
                     case 1:
-                        fitness += 10;
+                        fitness += 0;
                         break;
                     case 2:
-                        fitness += 5;
+                        fitness += 0;
                         break;
                     case 3:
                         fitness += 0;
                         break;
                     case 4:
-                        fitness += 100;
+                        fitness += 150;
                         break;
                     default:
                         break;
@@ -99,7 +99,33 @@ BotParameters load_params_from_file(const std::string& filename) {
     }
 }
 
+std::vector<BotParameters> initializePopulationRandom(int populationSize) {
+    std::vector<BotParameters> population(populationSize);
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_real_distribution<> dis(-1.0, 1.0);
+    for (int i = 0; i < populationSize; i++) {
+        for (int j = 0; j < population[i].TOTAL_SIZE; j++) {
+            population[i].data[j] = dis(gen);
+        }
+    }
+    // Initialize each BotParameters object as needed
+    return population;
+}
+
 int main(int argc, char** argv) {
+    if (std::string(argv[1]) == std::string("test_one_fitness")) {
+        auto params = load_params_from_file("evolution/god.txt");
+
+        auto start = std::chrono::high_resolution_clock::now();
+        double fitness = fitnessFunction(params, 0);
+        auto end = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> duration = end - start;
+
+        std::cout << "Fitness: " << fitness << std::endl;
+        std::cout << "Duration: " << duration.count() << " seconds" << std::endl;
+        return 0;
+    }
     if (argc < 4) {
         std::cerr << "Usage: " << argv[0] << " <populationSize> <generations> <mutationRate>" << std::endl;
         return 1;
@@ -118,6 +144,9 @@ int main(int argc, char** argv) {
 
     // Initialize population
     std::vector<BotParameters> population = initializePopulation(populationSize, god);
+    if (argc >= 5  && std::string(argv[4]) == std::string("--random")) {
+        population = initializePopulationRandom(populationSize);
+    }
 
     std::random_device rd;
     std::mt19937 gen(rd());
@@ -163,7 +192,6 @@ int main(int argc, char** argv) {
         std::cout << "Generation " << generation << " Best Fitness: " << fitnesses[bestIndex] << std::endl;
     }
 
-    
     // Save the best individual to a file
     write_params_to_file(the_goat, "evolution/the_goat.txt");
     return 0;
@@ -177,6 +205,8 @@ std::vector<BotParameters> initializePopulation(int populationSize, BotParameter
     // Initialize each BotParameters object as needed
     return population;
 }
+
+
 
 BotParameters selectParent(const std::vector<BotParameters>& population, const std::vector<double>& fitnesses) {
     std::random_device rd;
@@ -199,7 +229,7 @@ void normalize(BotParameters& params) {
         return;
     }
     factor = 1 / factor;
-    factor *= 1000; // make it not tiny
+    factor *= 1000;  // make it not tiny
     for (int i = 0; i < BotParameters::TOTAL_SIZE; i++) {
         params.data[i] *= factor;
     }
@@ -211,7 +241,6 @@ BotParameters crossover(const BotParameters& parent1, const BotParameters& paren
     normalize(norm1);
     BotParameters norm2 = parent2;
     normalize(norm2);
-
 
     auto distro = std::uniform_real_distribution<>(0, 1);
     auto rng = std::mt19937(std::random_device{}());
